@@ -153,6 +153,10 @@ label.f{display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:70
 .seg-tabs button{flex:1;border:none;background:none;border-radius:10px;min-height:40px;font-size:14px;color:var(--muted);font-weight:700}
 .seg-tabs button.on{background:var(--card);color:var(--ink)}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+.kgrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin:10px 0}
+.kgrid button{background:var(--paper);border:1px solid var(--line);border-radius:10px;min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;color:var(--ink)}
+.kgrid b{font-size:22px;font-family:var(--display)}.kgrid small{font-size:11px;color:var(--muted)}
+.bigkana{align-self:center;font-family:var(--display);font-size:96px;line-height:1.1;font-weight:800;background:var(--card);border:1px solid var(--line);border-radius:24px;width:160px;height:160px;color:var(--ink)}
 
 #app{padding-top:env(safe-area-inset-top)}
 </style>
@@ -663,6 +667,421 @@ items:[
 ]}
 ]});
 
+// Parcours japonais progressif — partie 1 (étapes 0 à 7)
+const JAPATH = [
+{id:"u0", k:"問", title:"Comprendre les consignes de l'examen", goal:"Savoir exactement ce qu'on te demande, même si tu ne comprends pas encore toute la question.", tags:[],
+html:`<p>Le sujet de japonais est <b>entièrement en japonais</b>, consignes comprises. Bonne nouvelle : les consignes sont <b>toujours les mêmes</b> d'une année à l'autre. Apprends-les une fois pour toutes.</p>
+<table><tr><th>Ce que tu lis</th><th>Ce que ça veut dire</th></tr>
+<tr><td>＿＿に 入{はい}る いちばん てきとうな ものを えらびなさい</td><td>Choisis ce qui convient le mieux pour remplir le blanc.</td></tr>
+<tr><td>＿＿と いちばん かんけいが ある もの<br>＿＿と ほぼ 同{おな}じ 意味{いみ}の もの</td><td>Choisis ce qui a le sens le plus proche du passage souligné (synonyme).</td></tr>
+<tr><td>＿＿の ひらがなと 同{おな}じ 漢字{かんじ}で 書{か}くもの</td><td>Choisis le mot qui s'écrit avec le même kanji que le mot souligné.</td></tr>
+<tr><td>次{つぎ}の 文章{ぶんしょう}を 読{よ}んで、問{と}いに 答{こた}えなさい</td><td>Lis le texte suivant et réponds aux questions.</td></tr>
+<tr><td>文{ぶん}の 内容{ないよう}に 合{あ}っている もの</td><td>Choisis ce qui CORRESPOND au texte.</td></tr>
+<tr><td>内容{ないよう}に 合{あ}わない もの</td><td>Choisis ce qui NE correspond PAS au texte (piège classique !).</td></tr>
+<tr><td>下線部{かせんぶ}</td><td>La partie soulignée.</td></tr>
+<tr><td>A〜Dの 中{なか}から 一{ひと}つ</td><td>Une seule réponse parmi A à D.</td></tr></table>
+<h4>Comment répondre</h4>
+<ol><li>Repère d'abord le <b>type</b> de consigne (blanc, synonyme, kanji, texte).</li>
+<li>Pour un blanc : lis les mots juste <b>avant et après</b> le blanc. Souvent, ils suffisent.</li>
+<li>Pour 合わない : cherche l'option FAUSSE, pas la vraie.</li>
+<li>Ne laisse jamais de case vide : élimine ce que tu sais faux, puis choisis.</li></ol>`,
+ex:[["いちばん てきとうな ものを えらびなさい。","Choisis ce qui convient le mieux."],["本文{ほんぶん}の 内容{ないよう}に 合{あ}わない ものは どれですか。","Lequel ne correspond pas au texte ?"]],
+voc:[["入{はい}る","entrer, aller dans"],["えらぶ（選{えら}ぶ）","choisir"],["同{おな}じ","même, identique"],["意味{いみ}","sens, signification"],["文章{ぶんしょう}","texte"],["内容{ないよう}","contenu"],["合{あ}う","correspondre"],["次{つぎ}","suivant"],["答{こた}える","répondre"],["問{と}い","question"]],
+items:[
+{q:"「＿＿に入{はい}るいちばんてきとうなものをえらびなさい」は何{なに}をする問題{もんだい}ですか。", o:["Remplir le blanc avec le meilleur choix","Trouver un synonyme","Trouver le même kanji","Lire un texte"], a:0, ex:"入る = entrer : ce qui « entre » dans le blanc."},
+{q:"「＿＿と同{おな}じ意味{いみ}のものをえらびなさい」は何{なに}をする問題{もんだい}ですか。", o:["Trouver l'antonyme","Trouver le synonyme","Traduire en anglais","Compter les mots"], a:1, ex:"同じ = même, 意味 = sens. Même sens = synonyme."},
+{q:"「内容{ないよう}に合{あ}わないもの」をえらぶとき、何{なに}をえらびますか。", o:["Ce qui correspond au texte","Ce qui ne correspond PAS au texte","Le titre du texte","La phrase la plus longue"], a:1, ex:"合わない = forme négative de 合う. On cherche l'option FAUSSE."},
+{q:"「下線部{かせんぶ}」はどこですか。", o:["La partie soulignée","Le titre","La dernière ligne","La note de bas de page"], a:0, ex:"下線 = ligne en dessous = soulignement."},
+{q:"「同{おな}じ漢字{かんじ}で書{か}くもの」の問題{もんだい}で、大切{たいせつ}なのは何{なに}ですか。", o:["Le même son","Le même kanji","La même longueur","La même couleur"], a:1, ex:"Deux mots peuvent avoir la même lecture avec des kanji différents. Il faut le même caractère."},
+{q:"「次{つぎ}の文章{ぶんしょう}を読{よ}んで」の意味{いみ}は？", o:["Écris le texte suivant","Lis le texte suivant","Traduis le texte suivant","Écoute le texte suivant"], a:1, ex:"読む = lire, 次 = suivant, 文章 = texte."},
+{q:"「えらびなさい」の意味{いみ}は？", o:["Écrivez","Choisissez","Lisez","Répondez"], a:1, ex:"えらぶ（選ぶ）= choisir. 〜なさい = impératif poli des consignes."},
+{q:"「A〜Dの中{なか}から一{ひと}つ」の意味{いみ}は？", o:["Deux réponses","Une seule réponse parmi A à D","Toutes les réponses","Aucune réponse"], a:1, ex:"一つ = un, 中から = parmi."}
+]},
+{id:"u1", k:"あ", title:"Les hiragana", goal:"Lire les 46 hiragana de base sans hésiter. Ils représentent la plupart du texte de l'examen.", kana:"hira", tags:[],
+html:`<p>Les <b>hiragana</b> servent à écrire les mots japonais, les particules (は, を, に…) et les terminaisons des verbes. Chaque signe = une syllabe.</p>
+<p>Touche une case pour entendre le son. Apprends <b>une ligne par jour</b>, puis fais les exercices : l'appli te reposera les signes que tu rates.</p>
+KANAGRID
+<h4>Les règles à connaître</h4>
+<ul><li><b>Tenten</b> (゛) rend le son « dur » : か ka → が ga, さ sa → ざ za, た ta → だ da, は ha → ば ba. <b>Maru</b> (゜) : は ha → ぱ pa.</li>
+<li><b>Petit ゃ ゅ ょ</b> : き + ゃ = きゃ kya, し + ょ = しょ sho.</li>
+<li><b>Petit っ</b> double la consonne suivante : きって kitte (timbre).</li>
+<li>Particules : は se lit <b>wa</b>, へ se lit <b>e</b>, を se lit <b>o</b>.</li>
+<li>Voyelle longue : おかあさん (okaasan), がっこう (gakkou).</li></ul>`,
+ex:[["わたしは がくせいです。","Je suis étudiant."],["ありがとう ございます。","Merci beaucoup."],["にほんご","japonais (langue)"]],
+voc:[["わたし","je, moi"],["がくせい","étudiant"],["せんせい","professeur"],["ともだち","ami"],["がっこう","école"],["にほん","Japon"],["ほん","livre"],["みず","eau"]],
+items:[]},
+{id:"u2", k:"ア", title:"Les katakana", goal:"Lire les mots étrangers écrits en katakana (ils tombent dans les questions de synonymes).", kana:"kata", tags:["katakana"],
+html:`<p>Les <b>katakana</b> ont les mêmes sons que les hiragana, mais servent aux <b>mots étrangers</b> : コーヒー (coffee), パソコン (ordinateur), アフリカ.</p>
+KANAGRID
+<h4>Astuces</h4>
+<ul><li>Le trait <b>ー</b> allonge la voyelle : コーヒー = kôhî.</li>
+<li>Pièges visuels : シ shi / ツ tsu, ソ so / ン n. Pour シ et ン, les petits traits sont plutôt horizontaux et le grand trait monte de bas en haut ; pour ツ et ソ, les petits traits sont verticaux et le grand trait descend de haut en bas.</li>
+<li>Dans l'examen : オーバーする = dépasser, ワンパターン = monotone, ニュアンス = nuance.</li></ul>`,
+ex:[["ブルキナファソから きました。","Je viens du Burkina Faso."],["コーヒーを のみます。","Je bois du café."]],
+voc:[["コーヒー","café"],["パソコン","ordinateur"],["テスト","test, examen"],["スマホ","smartphone"],["アフリカ","Afrique"],["フランス","France"],["マーケティング","marketing"],["アルバイト","petit boulot"]],
+items:[]},
+{id:"u3", k:"は", title:"Première phrase : AはBです", goal:"Se présenter et construire une phrase simple (indispensable pour l'entretien).", tags:["particules"],
+html:`<h4>La structure de base</h4>
+<p><b>A は B です</b> = A est B. (は se lit « wa »)</p>
+<ul><li>わたしは モハメドです。 Je suis Mohamed.</li>
+<li>Négatif : B <b>では ありません</b> (ou じゃ ありません).</li>
+<li>Question : ajoute <b>か</b> à la fin. がくせいですか。 Es-tu étudiant ?</li></ul>
+<h4>La particule の</h4>
+<p>Relie deux noms : <b>A の B</b> = le B de A. にほんごの せんせい = le professeur de japonais.</p>
+<h4>これ・それ・あれ・どれ</h4>
+<p>これ = ceci (près de moi) · それ = cela (près de toi) · あれ = cela là-bas · どれ = lequel ?<br>Devant un nom : この本 / その本 / あの本 / どの本.</p>
+<h4>Les mots interrogatifs</h4>
+<p>なに / なん = quoi · だれ = qui · どこ = où · いつ = quand · どう = comment · どうして = pourquoi · いくら = combien (prix).</p>`,
+ex:[["はじめまして。モハメドです。","Enchanté. Je suis Mohamed."],["わたしは ブルキナファソじんです。","Je suis Burkinabè."],["これは にほんごの ほんです。","Ceci est un livre de japonais."],["あの ひとは だれですか。","Qui est cette personne ?"]],
+voc:[["〜じん（人{じん}）","personne de (nationalité)"],["ひと（人{ひと}）","personne"],["なまえ（名前{なまえ}）","nom"],["くに（国{くに}）","pays"],["かいしゃいん","employé de bureau"],["だいがく（大学{だいがく}）","université"],["はい / いいえ","oui / non"],["どうぞ よろしく","enchanté (formule)"]],
+items:[
+{q:"わたし＿＿ モハメドです。", o:["を","は","に","で"], a:1, ex:"は marque le thème : わたしは = moi, je…"},
+{q:"これは にほんご＿＿ ほんです。", o:["の","を","が","へ"], a:0, ex:"の relie deux noms : livre DE japonais."},
+{q:"「あの ひとは ＿＿ですか。」「たなかさんです。」", o:["なに","どこ","だれ","いつ"], a:2, ex:"だれ = qui. La réponse est un nom de personne."},
+{q:"「トイレは ＿＿ですか。」「あそこです。」", o:["どこ","だれ","なに","いくら"], a:0, ex:"どこ = où. あそこ = là-bas."},
+{q:"「この ほんは ＿＿ですか。」「1000えんです。」", o:["いつ","いくら","どう","だれ"], a:1, ex:"いくら = combien (prix)."},
+{q:"わたしは せんせいでは ＿＿。", o:["です","ありません","ます","か"], a:1, ex:"Négation de です : では（じゃ）ありません."},
+{q:"「＿＿ ほんは あなたのですか。」（le livre près de toi）", o:["この","その","あの","どの"], a:1, ex:"その = près de l'interlocuteur."},
+{q:"がくせいです＿＿。（question）", o:["ね","よ","か","の"], a:2, ex:"か à la fin transforme la phrase en question."},
+{q:"「にほんごの べんきょうは ＿＿ですか。」「おもしろいです。」", o:["どう","だれ","どこ","いくら"], a:0, ex:"どうですか = comment est-ce ? Réponse : une appréciation. (Vu dans l'annale 2023 niveau A !)"},
+{q:"「はじめまして」の あとで、よく 何{なに}と いいますか。", o:["どうぞ よろしく おねがいします","いただきます","おやすみなさい","いってきます"], a:0, ex:"Formule de présentation complète : はじめまして。〜です。どうぞよろしくおねがいします。"}
+]},
+{id:"u4", k:"を", title:"Les verbes en ます et les particules de lieu", goal:"Conjuguer les verbes poliment et choisir entre を, に, で, へ — les questions 1 et 2 de chaque examen.", tags:["particules"],
+html:`<h4>La forme polie ます</h4>
+<table><tr><th></th><th>Présent</th><th>Négatif</th><th>Passé</th><th>Passé négatif</th></tr>
+<tr><td>manger</td><td>たべます</td><td>たべません</td><td>たべました</td><td>たべませんでした</td></tr>
+<tr><td>aller</td><td>いきます</td><td>いきません</td><td>いきました</td><td>いきませんでした</td></tr></table>
+<p>Inviter : <b>〜ませんか</b> (vous ne voulez pas… ?) · Proposer : <b>〜ましょう</b> (faisons…).</p>
+<h4>Les 4 particules les plus testées</h4>
+<table><tr><th>Particule</th><th>Rôle</th><th>Exemple</th></tr>
+<tr><td>を (o)</td><td>objet direct · lieu qu'on traverse</td><td>パンを たべます · みちを わたります</td></tr>
+<tr><td>に</td><td>destination · heure précise · lieu où l'on EST</td><td>がっこうに いきます · 7じに おきます · へやに います</td></tr>
+<tr><td>で</td><td>lieu où l'on FAIT une action · moyen</td><td>としょかんで べんきょうします · バスで いきます</td></tr>
+<tr><td>へ (e)</td><td>direction</td><td>にほんへ いきます</td></tr></table>
+<p class="tip">Réflexe d'examen : verbe d'action (たべる, べんきょうする) → <b>で</b> pour le lieu. Verbe d'existence (いる, ある) → <b>に</b>. Verbe de passage (とおる, わたる, さんぽする) → <b>を</b>.</p>`,
+ex:[["まいにち にほんごを べんきょうします。","J'étudie le japonais tous les jours."],["あした がっこうへ いきます。","Demain, je vais à l'école."],["いっしょに たべませんか。","Tu veux manger avec moi ?"]],
+voc:[["たべます","manger"],["のみます","boire"],["いきます","aller"],["きます","venir"],["かえります","rentrer"],["べんきょうします","étudier"],["おきます","se lever"],["ねます","se coucher"],["まいにち（毎日{まいにち}）","tous les jours"],["あした","demain"]],
+items:[
+{q:"まいにち コーヒー＿＿ のみます。", o:["に","を","で","へ"], a:1, ex:"を = objet direct du verbe boire."},
+{q:"としょかん＿＿ べんきょうします。", o:["に","を","で","が"], a:2, ex:"で = lieu où se fait l'action."},
+{q:"7じ＿＿ おきます。", o:["に","で","を","と"], a:0, ex:"に = heure précise."},
+{q:"バス＿＿ かいしゃへ いきます。", o:["を","で","に","が"], a:1, ex:"で = moyen de transport."},
+{q:"駅{えき}の 前{まえ}＿＿ とおります。", o:["で","と","に","を"], a:3, ex:"を = lieu traversé. C'est exactement la question 1 de l'annale 2025 !"},
+{q:"きのう テレビを ＿＿。", o:["みます","みました","みません","みましょう"], a:1, ex:"きのう = hier → passé ました."},
+{q:"いっしょに えいがを みに いき＿＿か。", o:["ます","ません","ました","ましょう"], a:1, ex:"〜ませんか = invitation polie."},
+{q:"にほん＿＿ いきたいです。", o:["を","で","へ","が"], a:2, ex:"へ (ou に) = direction / destination."},
+{q:"きのうは どこへも いき＿＿。", o:["ます","ました","ませんでした","ましょう"], a:2, ex:"どこへも + négatif = nulle part. Passé négatif : ませんでした."},
+{q:"こうえん＿＿ さんぽします。", o:["を","に","で","へ"], a:0, ex:"さんぽする (se promener) prend を pour le lieu parcouru."}
+]},
+{id:"u5", k:"が", title:"は ou が, et les autres particules", goal:"Maîtriser が, と, も, から, まで, しか, だけ, ばかり.", tags:["particules"],
+html:`<h4>は ou が ?</h4>
+<ul><li><b>は</b> présente le thème : わたしは がくせいです.</li>
+<li><b>が</b> s'utilise avec : すき / きらい / じょうず / へた / わかる / ほしい / ある / いる. Ex. : にほんごが すきです.</li>
+<li><b>が</b> après un mot interrogatif sujet : だれが きましたか.</li>
+<li>Avec 〜てあります : 花{はな}が かざってあります (annale 2023).</li></ul>
+<h4>Les petites particules</h4>
+<table><tr><th>Particule</th><th>Sens</th><th>Exemple</th></tr>
+<tr><td>と</td><td>et (entre noms) · avec</td><td>パンと りんご · ともだちと いきます</td></tr>
+<tr><td>も</td><td>aussi</td><td>わたしも がくせいです</td></tr>
+<tr><td>から / まで</td><td>de / jusqu'à</td><td>9じから 5じまで</td></tr>
+<tr><td>だけ</td><td>seulement</td><td>みずだけ のみます</td></tr>
+<tr><td>しか〜ない</td><td>ne… que (verbe NÉGATIF)</td><td>みずしか のみません</td></tr>
+<tr><td>ばかり</td><td>rien que, ne faire que</td><td>本{ほん}ばかり よんでいた</td></tr></table>
+<p class="tip">Piège fréquent : しか exige un verbe négatif. Si le verbe est affirmatif, ce n'est jamais しか.</p>`,
+ex:[["わたしは にほんごが すきです。","J'aime le japonais."],["ともだちと がっこうへ いきます。","Je vais à l'école avec un ami."],["1000えんしか ありません。","Je n'ai que 1000 yens."]],
+voc:[["すき","aimer"],["きらい","détester"],["じょうず","doué"],["へた","pas doué"],["わかる","comprendre"],["ほしい","vouloir (un objet)"],["ある / いる","il y a (objet / être vivant)"],["りんご","pomme"]],
+items:[
+{q:"わたしは サッカー＿＿ すきです。", o:["を","が","に","で"], a:1, ex:"すき prend が."},
+{q:"毎日{まいにち} パン＿＿ りんごを 食{た}べています。", o:["が","と","へ","を"], a:1, ex:"と relie deux noms (annale 2024, question 1)."},
+{q:"たなかさんも がくせいです。わたし＿＿ がくせいです。", o:["は","も","が","を"], a:1, ex:"も = aussi."},
+{q:"かいしゃは 9じ＿＿ 5じまでです。", o:["から","まで","に","で"], a:0, ex:"から〜まで = de… à…"},
+{q:"おかねが 500えん＿＿ ありません。", o:["だけ","しか","ばかり","も"], a:1, ex:"Verbe négatif → しか."},
+{q:"高校生{こうこうせい}のとき、本{ほん}＿＿ 読{よ}んでいました。", o:["しか","ほど","たくさん","ばかり"], a:3, ex:"Verbe affirmatif → ばかり (annale 2024). しか est éliminé car le verbe n'est pas négatif."},
+{q:"「だれ＿＿ きましたか。」「やまださんが きました。」", o:["は","が","を","に"], a:1, ex:"Interrogatif sujet + が."},
+{q:"にほんごが すこし ＿＿。", o:["わかります","わかりません","しりません","しっています"], a:0, ex:"すこし わかります = je comprends un peu. （phrase utile à l'entretien）"},
+{q:"へやに 花{はな}＿＿ かざってあります。", o:["に","の","が","へ"], a:2, ex:"〜てあります : l'objet prend が (annale 2023 niveau A)."},
+{q:"つくえの 上{うえ}に ねこ＿＿ います。", o:["が","を","で","へ"], a:0, ex:"います / あります : le sujet prend が."}
+]},
+{id:"u6", k:"形", title:"Les adjectifs et la comparaison", goal:"Décrire et comparer : い-adjectifs, な-adjectifs, より, ほど.", tags:["adjectifs","comparaison"],
+html:`<h4>Deux familles d'adjectifs</h4>
+<table><tr><th></th><th>い-adjectif (たかい)</th><th>な-adjectif (しずか)</th></tr>
+<tr><td>Devant un nom</td><td>たかい ほん</td><td>しずかな へや</td></tr>
+<tr><td>Négatif</td><td>たかくない</td><td>しずかではない</td></tr>
+<tr><td>Passé</td><td>たかかった</td><td>しずかだった</td></tr>
+<tr><td>Forme て (et…)</td><td>たかくて</td><td>しずかで</td></tr>
+<tr><td>Adverbe</td><td>たかく</td><td>しずかに</td></tr></table>
+<p>Exception : いい (bien) → よくない, よかった.</p>
+<h4>Comparer</h4>
+<ul><li>A は B <b>より</b> たかいです = A est plus cher que B.</li>
+<li>A は B <b>ほど</b> たかくないです = A n'est pas aussi cher que B (verbe NÉGATIF).</li>
+<li>〜の 中{なか}で 〜が いちばん… = le plus… parmi.</li>
+<li><b>〜くなる / 〜になる</b> = devenir : じょうずに なりました.</li></ul>`,
+ex:[["にほんごは むずかしいですが、おもしろいです。","Le japonais est difficile mais intéressant."],["東京{とうきょう}は ワガドゥグより 大{おお}きいです。","Tokyo est plus grand que Ouagadougou."],["にほんごが じょうずに なりました。","Mon japonais s'est amélioré."]],
+voc:[["おおきい / ちいさい","grand / petit"],["たかい / やすい","cher / bon marché"],["あたらしい / ふるい","neuf / vieux"],["むずかしい / やさしい","difficile / facile"],["しずか","calme"],["にぎやか","animé"],["べんり","pratique"],["きれい","beau, propre"]],
+items:[
+{q:"これは ＿＿ へやです。", o:["しずか","しずかな","しずかの","しずかい"], a:1, ex:"な-adjectif devant un nom : しずかな."},
+{q:"この ほんは ＿＿。", o:["たかいじゃありません","たかくないです","たかいないです","たかくじゃないです"], a:1, ex:"い-adjectif négatif : たかい → たかくない."},
+{q:"きのうの テストは ＿＿。", o:["やさしいでした","やさしかったです","やさしくでした","やさしいだった"], a:1, ex:"Passé d'un い-adjectif : やさしかった."},
+{q:"わたしは 歌{うた}が 好{す}きですが、田中{たなか}さん＿＿ じょうずでは ありません。", o:["より","ほど","まで","から"], a:1, ex:"ほど + négatif = pas aussi… que (annale 2023)."},
+{q:"日本語{にほんご}が ＿＿ なりました。", o:["じょうず","じょうずに","じょうずな","じょうずで"], a:1, ex:"な-adjectif + に + なる = devenir."},
+{q:"この へやは ひろくて、＿＿ です。", o:["あかるい","あかるく","あかるくて","あかるさ"], a:0, ex:"ひろくて (forme て) relie : spacieuse ET lumineuse."},
+{q:"にほんごの 中{なか}で、何{なに}が いちばん むずかしいですか。— ＿＿が いちばん むずかしいです。", o:["かんじ","かんじより","かんじほど","かんじの"], a:0, ex:"Réponse au superlatif : Xが いちばん…"},
+{q:"「この まちは ＿＿ ですか。」「とても にぎやかです。」", o:["どう","どんな","なに","どれ"], a:0, ex:"どうですか = comment est-ce ? どんな doit être suivi d'un nom."},
+{q:"いい → 「よくない」. では、「いい」の 過去{かこ}（passé）は？", o:["いかった","よかった","いいでした","よいでした"], a:1, ex:"Exception : いい se conjugue avec よ : よかった."},
+{q:"東京{とうきょう}は 大阪{おおさか}＿＿ 大{おお}きいです。", o:["ほど","より","まで","しか"], a:1, ex:"より = plus… que."}
+]},
+{id:"u7", k:"て", title:"La forme て : la clé de la grammaire", goal:"Former la forme て et l'utiliser dans les structures qui tombent chaque année.", tags:["formes verbales"],
+html:`<h4>Former la forme て</h4>
+<table><tr><th>Verbe en…</th><th>Devient</th><th>Exemple</th></tr>
+<tr><td>う・つ・る</td><td>って</td><td>かう → かって · まつ → まって · かえる → かえって</td></tr>
+<tr><td>む・ぶ・ぬ</td><td>んで</td><td>よむ → よんで · あそぶ → あそんで</td></tr>
+<tr><td>く / ぐ</td><td>いて / いで</td><td>かく → かいて · およぐ → およいで</td></tr>
+<tr><td>す</td><td>して</td><td>はなす → はなして</td></tr>
+<tr><td>Verbes en る (groupe 2)</td><td>て</td><td>たべる → たべて · みる → みて</td></tr>
+<tr><td>Irréguliers</td><td></td><td>する → して · くる → きて · いく → <b>いって</b></td></tr></table>
+<h4>Les structures avec て</h4>
+<ul><li><b>〜てください</b> : faites… s'il vous plaît</li>
+<li><b>〜ている</b> : être en train de / état (けっこんしている = être marié)</li>
+<li><b>〜てから</b> : après avoir fait (手{て}を あらってから = annale 2024)</li>
+<li><b>〜てもいい</b> : on peut · <b>〜てはいけない</b> : il est interdit de</li>
+<li><b>〜てしまう</b> : finir de / regret (すっかり かわってしまった)</li>
+<li><b>〜ていく / 〜てくる</b> : faire puis aller / venir (プレゼントを かっていく)</li>
+<li><b>〜てあります</b> : état résultant d'une action volontaire</li></ul>`,
+ex:[["すこし まってください。","Attendez un peu, s'il vous plaît."],["いま にほんごを べんきょうしています。","J'étudie le japonais en ce moment."],["ここで しゃしんを とっても いいですか。","Puis-je prendre une photo ici ?"]],
+voc:[["まつ","attendre"],["よむ","lire"],["かく","écrire"],["はなす","parler"],["あらう","laver"],["つかう","utiliser"],["すわる","s'asseoir"],["しゃしんを とる","prendre une photo"]],
+items:[
+{q:"よむ → forme て ?", o:["よんで","よって","よいて","よみて"], a:0, ex:"む → んで."},
+{q:"いく → forme て ?", o:["いいて","いって","いきて","いんで"], a:1, ex:"Exception : いく → いって."},
+{q:"手{て}を あらって＿＿、ごはんを 食{た}べましょう。", o:["あとで","から","ながら","まえに"], a:1, ex:"〜てから = après avoir. (annale 2024, question 3)"},
+{q:"ここに なまえを かいて ＿＿。", o:["ください","います","しまいます","あります"], a:0, ex:"〜てください = demande polie."},
+{q:"たなかさんは いま でんわを ＿＿。", o:["しています","してください","してから","してしまいます"], a:0, ex:"〜ている = action en cours."},
+{q:"ここで たばこを すっては ＿＿。", o:["いいです","いけません","ください","あります"], a:1, ex:"〜てはいけません = interdiction."},
+{q:"たんじょう日{び}パーティーに プレゼントを 買{か}って ＿＿。", o:["しましょう","ありましょう","いきましょう","つくりましょう"], a:2, ex:"〜ていく = faire puis y aller (annale 2023 niveau A)."},
+{q:"10年前{ねんまえ}と くらべて、この 町{まち}は すっかり 変{か}わって ＿＿。", o:["しまいました","ありました","おきました","みました"], a:0, ex:"〜てしまう = complètement / changement irréversible."},
+{q:"「この ペンを ＿＿ も いいですか。」「はい、どうぞ。」", o:["つかう","つかって","つかった","つかわない"], a:1, ex:"〜てもいいですか = puis-je… ?"},
+{q:"かえる（rentrer）→ forme て ?", o:["かえて","かえって","かえんで","かえいて"], a:1, ex:"かえる (rentrer) est du groupe 1 → かえって. Piège : かえる (changer) → かえて."}
+]}
+];
+
+// Parcours japonais progressif — partie 2 (étapes 8 à 14)
+JAPATH.push(
+{id:"u8", k:"た", title:"Formes dictionnaire, ない et た", goal:"Utiliser les formes simples dans les structures avant / après / expérience / obligation.", tags:["formes verbales"],
+html:`<h4>Les trois formes simples</h4>
+<table><tr><th>ます</th><th>Dictionnaire</th><th>ない</th><th>た</th></tr>
+<tr><td>たべます</td><td>たべる</td><td>たべない</td><td>たべた</td></tr>
+<tr><td>かきます</td><td>かく</td><td>かかない</td><td>かいた</td></tr>
+<tr><td>のみます</td><td>のむ</td><td>のまない</td><td>のんだ</td></tr>
+<tr><td>します</td><td>する</td><td>しない</td><td>した</td></tr>
+<tr><td>きます</td><td>くる</td><td>こない</td><td>きた</td></tr></table>
+<p>La forme た se fabrique comme la forme て (て → た, で → だ).</p>
+<h4>Structures très fréquentes</h4>
+<ul><li>dictionnaire + <b>まえに</b> : avant de (ねる まえに)</li>
+<li>た + <b>あとで</b> : après avoir (シャワーを あびた あとで = annale 2025)</li>
+<li>た + <b>ことが ある</b> : avoir déjà fait (expérience)</li>
+<li>dictionnaire + <b>ことが できる</b> : pouvoir faire</li>
+<li>ない + <b>でください</b> : ne faites pas</li>
+<li><b>〜なければ ならない</b> : devoir · <b>〜なくても いい</b> : pas besoin de</li>
+<li>radical + <b>ながら</b> : en faisant (simultané) · radical + <b>たい</b> : vouloir faire</li></ul>`,
+ex:[["にほんへ いった ことが ありません。","Je ne suis jamais allé au Japon."],["ねる まえに、にほんごを べんきょうします。","J'étudie le japonais avant de dormir."],["しゅくだいを しなければ なりません。","Je dois faire mes devoirs."]],
+voc:[["シャワーを あびる","prendre une douche"],["しゅくだい","devoirs"],["りゅうがく（留学{りゅうがく}）","études à l'étranger"],["しけん（試験{しけん}）","examen"],["おぼえる","mémoriser"],["わすれる","oublier"],["あそぶ","s'amuser"],["はたらく","travailler"]],
+items:[
+{q:"シャワーを ＿＿あとで、うたを うたいます。", o:["あび","あびた","あびて","あびる"], a:1, ex:"〜たあとで (annale 2025, question 4)."},
+{q:"ねる ＿＿、はを みがきます。", o:["まえに","あとで","てから","ながら"], a:0, ex:"Dictionnaire + まえに."},
+{q:"にほんの アニメを 見{み}た ことが ＿＿か。", o:["あります","います","します","なります"], a:0, ex:"〜たことがあります = expérience."},
+{q:"ここに 車{くるま}を とめ＿＿ ください。", o:["ない","なくて","ないで","なければ"], a:2, ex:"〜ないでください = ne faites pas."},
+{q:"あしたは 7じに こなければ ＿＿。", o:["なりません","いけます","いいです","ありません"], a:0, ex:"〜なければなりません = devoir."},
+{q:"あしたは やすみですから、はやく おきなくても ＿＿。", o:["いけません","いいです","なりません","ください"], a:1, ex:"〜なくてもいい = ce n'est pas nécessaire."},
+{q:"おんがくを ききながら、＿＿。", o:["べんきょうします","べんきょうしました から","べんきょうしない","べんきょうの"], a:0, ex:"〜ながら + action principale."},
+{q:"にほんで マーケティングを べんきょうし＿＿ です。", o:["たい","たがる","ない","た"], a:0, ex:"Radical + たい = je veux faire. Phrase parfaite pour l'entretien !"},
+{q:"くる の ない形{けい}は？", o:["くない","きない","こない","かない"], a:2, ex:"Irrégulier : くる → こない."},
+{q:"両親{りょうしん}に ＿＿からでなければ、日本{にほん}に留学{りゅうがく}するかどうかを決{き}められない。", o:["相談{そうだん}した","相談{そうだん}して","相談{そうだん}しない","相談{そうだん}する"], a:1, ex:"〜てからでなければ = pas avant d'avoir fait (annale 2025). Tu reconnais てから de l'étape 7."}
+]},
+{id:"u9", k:"数", title:"Lieux, positions et compteurs", goal:"Situer les choses et compter : étages, personnes, objets.", tags:["compteurs","vocabulaire"],
+html:`<h4>Position</h4>
+<p>Structure : <b>X の 上{うえ} に Y が あります</b> = Y est sur X.</p>
+<p>上{うえ} dessus · 下{した} dessous · 前{まえ} devant · うしろ derrière · なか dedans · そと dehors · となり à côté · ちかく près · あいだ entre.</p>
+<h4>Les compteurs les plus utiles</h4>
+<table><tr><th>Compteur</th><th>Pour</th><th>Exemples</th></tr>
+<tr><td>〜つ</td><td>choses en général</td><td>ひとつ, ふたつ, みっつ, よっつ</td></tr>
+<tr><td>〜にん / 〜り</td><td>personnes</td><td>ひとり, ふたり, さんにん</td></tr>
+<tr><td>〜まい</td><td>objets plats</td><td>かみ 2まい</td></tr>
+<tr><td>〜ほん</td><td>objets longs</td><td>ペン 1ぽん</td></tr>
+<tr><td>〜かい / 〜がい</td><td>étages</td><td>3がい, なんがい</td></tr>
+<tr><td>〜だい</td><td>machines, véhicules</td><td>くるま 1だい</td></tr>
+<tr><td>〜さい</td><td>âge</td><td>25さい</td></tr></table>
+<p class="tip">Annale 2025 : « おもちゃの うりばは、なんがいに ありますか » = à quel étage est le rayon jouets ?</p>`,
+ex:[["つくえの 上{うえ}に ほんが あります。","Il y a un livre sur le bureau."],["かぞくは 5にんです。","Nous sommes 5 dans la famille."],["きっぷを 2まい ください。","Deux billets, s'il vous plaît."]],
+voc:[["上{うえ} / 下{した}","dessus / dessous"],["前{まえ} / うしろ","devant / derrière"],["となり","à côté"],["あいだ（間{あいだ}）","entre"],["かぞく","famille"],["えき（駅{えき}）","gare"],["みせ（店{みせ}）","magasin"],["うりば","rayon (magasin)"]],
+items:[
+{q:"おもちゃの うりばは、＿＿に ありますか。", o:["何{なん}がい","何{なん}だい","何{なん}にん","何{なん}まい"], a:0, ex:"〜階（がい）= étages (annale 2025)."},
+{q:"きっぷを 2＿＿ ください。", o:["ほん","まい","にん","だい"], a:1, ex:"Billet = objet plat → まい."},
+{q:"きょうだいは ＿＿ います。（2 personnes）", o:["ふたつ","ふたり","にほん","にまい"], a:1, ex:"2 personnes = ふたり."},
+{q:"駅{えき}と デパートの ＿＿に レストランが あります。", o:["あいだ","となり","うえ","なか"], a:0, ex:"AとBのあいだ = entre A et B (annale 2023, kanji 間)."},
+{q:"りんごを ＿＿ かいました。（4 pommes）", o:["よっつ","よにん","よまい","よんほん"], a:0, ex:"Choses en général : ひとつ… よっつ."},
+{q:"「なんさいですか。」「25＿＿です。」", o:["さい","かい","だい","ほん"], a:0, ex:"〜さい = âge."},
+{q:"いすの ＿＿に ねこが います。（sous la chaise）", o:["うえ","した","まえ","なか"], a:1, ex:"した = dessous."},
+{q:"へやに だれ＿＿ いません。", o:["が","も","を","は"], a:1, ex:"だれも + négatif = personne."},
+{q:"くるまが 1＿＿ あります。", o:["だい","ほん","まい","つ"], a:0, ex:"Véhicules et machines → だい."},
+{q:"がっこうの ＿＿に こうえんが あります。（à côté）", o:["となり","あいだ","した","なか"], a:0, ex:"となり = juste à côté."}
+]},
+{id:"u10", k:"副", title:"Adverbes, connecteurs et expressions de temps", goal:"Comprendre les petits mots qui changent tout le sens : les adverbes testés chaque année.", tags:["adverbes","connecteurs"],
+html:`<h4>Adverbes à connaître absolument</h4>
+<table><tr><th>Adverbe</th><th>Sens</th><th>Indice dans la phrase</th></tr>
+<tr><td>もう</td><td>déjà</td><td>+ affirmatif passé</td></tr>
+<tr><td>まだ</td><td>pas encore / encore</td><td>+ négatif (まだ たべていません)</td></tr>
+<tr><td>ぜんぜん</td><td>pas du tout</td><td>+ négatif</td></tr>
+<tr><td>あまり</td><td>pas tellement</td><td>+ négatif</td></tr>
+<tr><td>それほど</td><td>pas tellement</td><td>+ négatif (annale 2024)</td></tr>
+<tr><td>そろそろ</td><td>bientôt, il est temps</td><td>futur proche</td></tr>
+<tr><td>だんだん</td><td>peu à peu</td><td>+ なる (changement)</td></tr>
+<tr><td>すっかり</td><td>complètement</td><td>+ てしまう</td></tr>
+<tr><td>きっと</td><td>sûrement</td><td>+ でしょう / と思う</td></tr>
+<tr><td>ちょうど</td><td>exactement, pile</td><td>heures, quantités</td></tr></table>
+<h4>Connecteurs</h4>
+<p>から = parce que · ので = parce que (plus poli) · が / けど = mais · のに = alors que (reproche) · ても = même si · それから = ensuite · でも = cependant · ところで = au fait (changement de sujet).</p>
+<p class="tip">Méthode : si la phrase contient un verbe négatif, cherche l'adverbe qui appelle la négation.</p>`,
+ex:[["もう ひるごはんを たべましたか。","As-tu déjà déjeuné ?"],["いいえ、まだ たべていません。","Non, pas encore."],["にほんごが だんだん じょうずに なりました。","Mon japonais s'améliore peu à peu."]],
+voc:[["もう","déjà"],["まだ","pas encore"],["ぜんぜん","pas du tout"],["そろそろ","bientôt"],["だんだん","peu à peu"],["すっかり","complètement"],["きっと","sûrement"],["ところで","au fait"]],
+items:[
+{q:"山田{やまだ}さんは ＿＿ 来{く}ると おもいます。", o:["しばらく","すっかり","そろそろ","だんだん"], a:2, ex:"そろそろ = bientôt (annale 2025)."},
+{q:"あには 魚{さかな}が ＿＿ すきでは ありません。", o:["かならず","しっかり","それほど","だんだん"], a:2, ex:"それほど + négatif (annale 2024)."},
+{q:"「もう しゅくだいを しましたか。」「いいえ、＿＿ です。」", o:["もう","まだ","ぜんぜん","きっと"], a:1, ex:"まだです = pas encore."},
+{q:"にほんごが ＿＿ わかりません。", o:["ぜんぜん","とても","よく","たくさん"], a:0, ex:"ぜんぜん + négatif = pas du tout."},
+{q:"さむく なりましたね。＿＿ ふゆですね。", o:["もう","まだ","ぜんぜん","あまり"], a:0, ex:"もう = déjà (c'est déjà l'hiver)."},
+{q:"あめが ふって いる＿＿、でかけません。", o:["から","けど","のに","ても"], a:0, ex:"から = parce que."},
+{q:"たくさん べんきょうした＿＿、しけんに おちました。", o:["から","ので","のに","ため"], a:2, ex:"のに = alors que (résultat inattendu, regret)."},
+{q:"＿＿ 9じです。じゅぎょうを はじめましょう。", o:["ちょうど","だんだん","すっかり","あまり"], a:0, ex:"ちょうど = pile."},
+{q:"今度{こんど}の週末{しゅうまつ}、旅行{りょこう}に行{い}きます。＿＿、あなたは最近旅行{さいきんりょこう}に行{い}きましたか。", o:["ところが","ところで","ところに","ところを"], a:1, ex:"ところで = au fait (annale 2024, synonyme de 話は変わりますが)."},
+{q:"あしたは ＿＿ はれるでしょう。", o:["きっと","ぜんぜん","まだ","あまり"], a:0, ex:"きっと + でしょう = sûrement."}
+]},
+{id:"u11", k:"敬", title:"Le keigo essentiel", goal:"Reconnaître les formes de politesse dans l'examen et les utiliser à l'entretien.", tags:["keigo","conversation","expressions"],
+html:`<p>Le <b>keigo</b> est la langue polie. Dans l'examen, il apparaît surtout en partie II (synonymes) : on te donne la forme polie, tu dois retrouver le verbe simple.</p>
+<table><tr><th>Verbe simple</th><th>Respectueux (pour l'autre)</th><th>Humble (pour moi)</th></tr>
+<tr><td>いる・いく・くる</td><td>いらっしゃる</td><td>おる / まいる</td></tr>
+<tr><td>たべる・のむ</td><td>めしあがる（召{め}し上{あ}がる）</td><td>いただく</td></tr>
+<tr><td>いう</td><td>おっしゃる</td><td>もうす（申{もう}す）</td></tr>
+<tr><td>する</td><td>なさる</td><td>いたす</td></tr>
+<tr><td>みる</td><td>ごらんになる</td><td>はいけんする</td></tr>
+<tr><td>わかる</td><td>—</td><td>かしこまりました（bien compris）</td></tr></table>
+<h4>Formules à connaître</h4>
+<ul><li>おかげさまで = grâce à vous (tout va bien)</li><li>おだいじに = prenez soin de vous</li>
+<li>ごちそうさまでした = merci pour le repas (après)</li><li>〜させてください = permettez-moi de…</li>
+<li>お先{さき}に 失礼{しつれい}します = je pars avant vous</li></ul>
+<h4>Pour ton entretien</h4>
+<p>はじめまして。ブルキナファソから まいりました モハメドと もうします。どうぞ よろしく おねがいいたします。</p>`,
+ex:[["ブルキナファソから まいりました。","Je viens du Burkina Faso (humble)."],["モハメドと もうします。","Je m'appelle Mohamed (humble)."],["せんせいは なにを めしあがりますか。","Que prendrez-vous, professeur ?"]],
+voc:[["いらっしゃる","être, aller, venir (respect)"],["めしあがる","manger, boire (respect)"],["いただく","recevoir, manger (humble)"],["もうす","dire, s'appeler (humble)"],["まいる","aller, venir (humble)"],["かしこまりました","bien compris"],["おかげさまで","grâce à vous"],["しつれいします","excusez-moi"]],
+items:[
+{q:"[[かしこまりました]]。", o:["かえりました","しつれいしました","わかりました","ごちそうさまでした"], a:2, ex:"Annale 2025, partie II, question 1."},
+{q:"先生{せんせい}は 何{なに}を [[めしあがりますか]]。", o:["あげますか","食{た}べますか","しますか","着{き}ますか"], a:1, ex:"Annale 2023 niveau A."},
+{q:"火{か}よう日{び}、会社{かいしゃ}を [[休{やす}ませてください]]。", o:["休{やす}みたいです","休{やす}んだほうが いいです","休{やす}んでください","休{やす}んでも いいです"], a:0, ex:"〜させてください = je souhaite faire (annale 2024)."},
+{q:"「あたらしい しごとは いかがですか。」「＿＿ たのしく はたらいています。」", o:["どういたしまして","おかげさまで","つまらなくて","おだいじに"], a:1, ex:"Annale 2023 niveau A, dialogue."},
+{q:"しゃちょうは いま かいぎしつに ＿＿。", o:["いらっしゃいます","まいります","おります","もうします"], a:0, ex:"Pour un supérieur → respectueux いらっしゃる."},
+{q:"わたしは モハメドと ＿＿。", o:["おっしゃいます","もうします","めしあがります","いらっしゃいます"], a:1, ex:"Pour soi → humble もうす."},
+{q:"「ごちそうさまでした」は いつ いいますか。", o:["Avant de manger","Après avoir mangé","En entrant","En partant le matin"], a:1, ex:"いただきます avant, ごちそうさまでした après."},
+{q:"せんせいが ＿＿ とおり、にほんごは むずかしいです。", o:["もうした","おっしゃった","まいった","いただいた"], a:1, ex:"Le professeur dit → respectueux おっしゃる."},
+{q:"「お先{さき}に 失礼{しつれい}します。」の いみは？", o:["Je pars avant vous","Bon appétit","Bienvenue","Je suis désolé d'être en retard"], a:0, ex:"Formule pour quitter le bureau avant les autres."},
+{q:"「おだいじに」は だれに いいますか。", o:["À quelqu'un qui est malade","À quelqu'un qui part en voyage","À un client","À un professeur le matin"], a:0, ex:"おだいじに = soigne-toi bien."}
+]},
+{id:"u12", k:"漢", title:"Les kanji de base et la partie kanji", goal:"Connaître 60 kanji essentiels et réussir la partie « même kanji ».", tags:["kanji"],
+html:`<p>Un kanji a souvent <b>deux lectures</b> : la lecture japonaise (くん) quand il est seul avec des hiragana, la lecture chinoise (おん) dans les mots composés.</p>
+<table><tr><th>Kanji</th><th>くん</th><th>おん</th><th>Exemples</th></tr>
+<tr><td>高</td><td>たか(い)</td><td>こう</td><td>高{たか}い · 高校{こうこう}</td></tr>
+<tr><td>下</td><td>した</td><td>か / げ</td><td>下{した} · 以下{いか}</td></tr>
+<tr><td>足</td><td>あし / た(りる)</td><td>そく</td><td>足{あし} · 足{た}りない</td></tr>
+<tr><td>間</td><td>あいだ / ま</td><td>かん</td><td>間{あいだ} · 間{ま}に合{あ}う · 時間{じかん}</td></tr>
+<tr><td>四</td><td>よ(っつ) / よん</td><td>し</td><td>四{よっ}つ · 四月{しがつ}</td></tr>
+<tr><td>防</td><td>ふせ(ぐ)</td><td>ぼう</td><td>防{ふせ}ぐ · 消防{しょうぼう}</td></tr>
+<tr><td>確</td><td>たし(か)</td><td>かく</td><td>確{たし}かめる · 正確{せいかく}</td></tr></table>
+<h4>Méthode pour la partie kanji</h4>
+<ol><li>Écris dans ta tête le kanji du mot souligné.</li><li>Pour chaque option, reconstitue le mot complet.</li><li>Garde l'option avec <b>le même caractère</b>, pas seulement le même son.</li></ol>
+<h4>Kanji N5 à apprendre en premier</h4>
+<p>一 二 三 四 五 六 七 八 九 十 百 千 万 円 日 月 火 水 木 金 土 年 時 分 半 今 何 人 子 女 男 父 母 友 先 生 学 校 大 小 中 上 下 前 後 左 右 外 国 名 本 山 川 雨 天 気 電 車 駅 道 店 食 飲 見 行 来 書 読 話 聞 買 休 出 入 立</p>`,
+ex:[["高{たか}い 山{やま}","une haute montagne"],["高校{こうこう}に 行{い}きます。","Je vais au lycée."],["時間{じかん}が ありません。","Je n'ai pas le temps."]],
+voc:[["日本{にほん}","Japon"],["学生{がくせい}","étudiant"],["先生{せんせい}","professeur"],["大学{だいがく}","université"],["時間{じかん}","temps, heure"],["今日{きょう}","aujourd'hui"],["電車{でんしゃ}","train"],["天気{てんき}","météo"]],
+items:[
+{q:"弟{おとうと}は 背{せ}が [[たか]]いです。", o:["兄は [[こう]]場で 働いて います。","銀[[こう]]に どろぼうが 入りました。","駅の 近くに [[こう]]校が あります。","この 町の 人[[こう]]は 10万人ぐらいです。"], a:2, ex:"高い → 高校. Annale 2023 niveau A."},
+{q:"「学校{がっこう}」の よみかたは？", o:["がっこう","がくこう","がこう","まなびこう"], a:0, ex:"学 がく + 校 こう → がっこう (le く devient un petit っ)."},
+{q:"「時間{じかん}」の よみかたは？", o:["じかん","とけい","じけん","しかん"], a:0, ex:"時 じ + 間 かん."},
+{q:"「足{た}りない」の いみは？", o:["Il n'y a pas assez","Les pieds font mal","Marcher vite","Ajouter"], a:0, ex:"足りる = suffire. 足りない = ne pas suffire."},
+{q:"「天気{てんき}」の いみは？", o:["La météo","L'électricité","Le ciel nocturne","Le printemps"], a:0, ex:"天 ciel + 気 air → temps qu'il fait."},
+{q:"テーブルの [[した]]に ねこが います。", o:["[[か]]曜日に プールに 行きましょう。","中学生以[[か]]は 無料です。","しょうらい 作[[か]]に なりたいです。","日本の 文[[か]]が 好きです。"], a:1, ex:"下 → 以下. Annale 2023 niveau A."},
+{q:"「電車{でんしゃ}」は 何{なん}ですか。", o:["un train","une voiture","un téléphone","une gare"], a:0, ex:"電 électricité + 車 véhicule = train."},
+{q:"「大学{だいがく}」の「大」の くんよみは？", o:["おお(きい)","ちい(さい)","なか","うえ"], a:0, ex:"大 : おおきい (くん) / だい (おん)."},
+{q:"一日中{いちにちじゅう} 歩{ある}いたので [[あし]]が いたく なりました。", o:["人が たくさん 来たので、いすの 数が [[た]]りません。","あそこに 人が [[た]]って います。","[[た]]分、彼も 来ると 思います。","あの ビルは 1958年に [[た]]てられました。"], a:0, ex:"足 → 足りません. Annale 2023 niveau A."},
+{q:"「今日{きょう}」の よみかたは？", o:["いまひ","きょう","こんにち","きのう"], a:1, ex:"Lecture spéciale : 今日 = きょう."}
+]},
+{id:"u13", k:"文", title:"Grammaire N4-N3 qui tombe souvent", goal:"Comprendre les formes intermédiaires de la partie I : ように, ために, そうです, らしい, ばかり…", tags:["expressions N4-N3","expressions N3-N2","voix passive"],
+html:`<table><tr><th>Forme</th><th>Sens</th><th>Exemple</th></tr>
+<tr><td>〜ように する</td><td>faire en sorte de</td><td>おくれない ように して ください</td></tr>
+<tr><td>〜ために</td><td>pour, dans le but de (volonté)</td><td>りゅうがくする ために べんきょうする</td></tr>
+<tr><td>〜そうです (après forme simple)</td><td>il paraît que (ouï-dire)</td><td>会議{かいぎ}が 開{ひら}かれる そうです</td></tr>
+<tr><td>〜そうです (radical)</td><td>avoir l'air</td><td>おいしそうです</td></tr>
+<tr><td>〜らしい</td><td>il semble (d'après ce qu'on entend)</td><td>びょういんに いる らしい</td></tr>
+<tr><td>〜たがる</td><td>(lui / elle) a envie de</td><td>こどもは あるきたがらない</td></tr>
+<tr><td>〜ておく</td><td>faire à l'avance</td><td>しらべて おきます</td></tr>
+<tr><td>〜かもしれない</td><td>peut-être</td><td>やすむ かもしれません</td></tr>
+<tr><td>〜はずだ</td><td>normalement, censé</td><td>もう ついた はずです</td></tr>
+<tr><td>Passif 〜られる</td><td>être + participe</td><td>しかられる · 開{ひら}かれる</td></tr>
+<tr><td>〜ことに する / なる</td><td>décider / il a été décidé</td><td>りゅうがくする ことに しました</td></tr>
+<tr><td>〜一方{いっぽう}だ</td><td>ne fait que (augmenter)</td><td>ふえる 一方だ</td></tr></table>
+<p class="tip">Ces formes occupent le milieu de la partie I (questions 6 à 11). Avec elles, tu passes de « débutant » à « moyen » sur l'échelle de l'examen.</p>`,
+ex:[["しけんに おくれない ように して ください。","Faites en sorte de ne pas être en retard."],["日本{にほん}に りゅうがくする ことに しました。","J'ai décidé d'étudier au Japon."],["あしたは あめが ふる そうです。","Il paraît qu'il pleuvra demain."]],
+voc:[["おくれる","être en retard"],["かいぎ（会議{かいぎ}）","réunion, conférence"],["しらべる","rechercher, vérifier"],["きめる","décider"],["ふえる / へる","augmenter / diminuer"],["しかる","gronder"],["ちゅうい","attention"],["じゅんび","préparation"]],
+items:[
+{q:"あしたの 試験{しけん}の 時間{じかん}に 遅{おく}れない＿＿ してください。", o:["ため","ために","ように","ような"], a:2, ex:"〜ないようにする. Annale 2023 niveau A."},
+{q:"来年{らいねん} 東京{とうきょう}で 大{おお}きい 会議{かいぎ}が ＿＿そうです。", o:["される","する","開{ひら}かれる","開{ひら}く"], a:2, ex:"Passif + そうです (ouï-dire). Annale 2023 niveau A."},
+{q:"最近{さいきん}の 子{こ}どもは あまり [[歩{ある}きたがりません]]。", o:["歩{ある}くことが できません","歩{ある}いたことが ありません","歩{ある}くのが 好{す}きでは ありません","歩{ある}くのが きらいでは ありません"], a:2, ex:"〜たがらない = ne veut pas. Annale 2023 niveau A."},
+{q:"りゅうがくする ＿＿、まいにち べんきょうしています。", o:["ために","ように","そうに","らしく"], a:0, ex:"ために = dans le but de (verbe volitif)."},
+{q:"この ケーキは おいし＿＿ですね。（elle a l'air bonne）", o:["そう","らしい","よう","ため"], a:0, ex:"Radical d'adjectif + そう = avoir l'air."},
+{q:"会議{かいぎ}の まえに しりょうを よんで ＿＿。", o:["おきます","しまいます","いきます","あります"], a:0, ex:"〜ておく = faire à l'avance."},
+{q:"山田{やまだ}さんは かぜを ひいたので、きょうは ＿＿ かもしれません。", o:["やすむ","やすんで","やすみ","やすもう"], a:0, ex:"Forme simple + かもしれません."},
+{q:"日本{にほん}の だいがくいんに いく ＿＿ しました。", o:["ことに","ように","そうに","ために"], a:0, ex:"〜ことにする = décider."},
+{q:"全然運動{ぜんぜんうんどう}していないため、体重{たいじゅう}が増{ふ}える＿＿。", o:["一方{いっぽう}だ","せいだ","だらけだ","にすぎない"], a:0, ex:"Annale 2025, question 8."},
+{q:"せんせいに ＿＿。（j'ai été grondé）", o:["しかりました","しかられました","しからせました","しかっていました"], a:1, ex:"Passif de しかる : しかられる."}
+]},
+{id:"u14", k:"読", title:"Lire un texte et répondre", goal:"Réussir la partie compréhension même sans tout comprendre.", tags:["lecture","référence","idée principale"],
+html:`<h4>La méthode en 5 étapes</h4>
+<ol><li><b>Lis d'abord la question</b> (問{と}い) : 合っている ou 合わない ?</li>
+<li><b>Lis les 4 options</b> et repère leurs mots-clés (noms, chiffres).</li>
+<li><b>Cherche ces mots-clés dans le texte</b> : la réponse est presque toujours dans 1 ou 2 phrases.</li>
+<li><b>Méfie-toi des mots absolus</b> : みんな (tout le monde), かならず (forcément), ぜったい (absolument), 〜なければならない, いつも, ぜんぜん. Souvent faux.</li>
+<li><b>これ / それ / このような</b> renvoient presque toujours à la phrase juste avant.</li></ol>
+<h4>Les mots du raisonnement</h4>
+<p>しかし / でも = mais (l'idée importante suit) · つまり = c'est-à-dire · たとえば = par exemple · だから = donc · また = de plus · 一方{いっぽう} = d'un autre côté.</p>
+<p class="tip">L'auteur donne souvent son avis dans la dernière phrase (〜と思う, 〜ではないだろうか). C'est souvent la réponse à la question « idée principale ».</p>`,
+ex:[["しかし、それは 本当{ほんとう}でしょうか。","Mais est-ce vraiment le cas ?"],["つまり、時間{じかん}は お金{かね}では 買{か}えないのです。","Autrement dit, le temps ne s'achète pas."]],
+voc:[["しかし","mais, cependant"],["つまり","c'est-à-dire"],["たとえば","par exemple"],["だから","donc"],["みんな","tout le monde"],["かならず","forcément"],["本当{ほんとう}","vrai"],["大切{たいせつ}","important"]],
+items:[
+{p:"わたしは 毎朝{まいあさ} 6時{じ}に おきます。まず、シャワーを あびます。それから、コーヒーを のみながら 日本語{にほんご}の アプリで 15分{ふん} べんきょうします。8時{じ}に かいしゃへ いきます。", q:"文{ぶん}の 内容{ないよう}に 合{あ}っている ものは どれですか。", o:["コーヒーを のんだ あとで、シャワーを あびます。","毎朝{まいあさ} 日本語{にほんご}を 15分{ふん} べんきょうします。","7時{じ}に かいしゃへ いきます。","日本語{にほんご}の 本{ほん}で べんきょうします。"], a:1, ex:"Il étudie 15 min avec une appli chaque matin. A inverse l'ordre, C : 8h, D : appli et non livre."},
+{p:"日本{にほん}の 大学{だいがく}では、4月{がつ}に 新{あたら}しい 学年{がくねん}が はじまります。でも、りゅうがくせいの ために、10月{がつ}に はじまる コースも あります。", q:"文{ぶん}の 内容{ないよう}に 合{あ}っている ものは どれですか。", o:["日本{にほん}の 大学{だいがく}は 10月{がつ}だけ はじまります。","りゅうがくせいの ための 10月{がつ}の コースが あります。","りゅうがくせいは 4月{がつ}に 来{き}ては いけません。","日本{にほん}の 大学{だいがく}には りゅうがくせいが いません。"], a:1, ex:"でも introduit l'info importante : des cours commencent en octobre pour les étudiants étrangers. A contient だけ (absolu) : faux."},
+{p:"さいきん、紙{かみ}の 本{ほん}を 読{よ}む 人{ひと}が へって、スマホで 本{ほん}を 読{よ}む 人{ひと}が ふえています。しかし、紙{かみ}の 本{ほん}の ほうが よく おぼえられると いう 人{ひと}も います。", q:"文{ぶん}の 内容{ないよう}に 合{あ}わない ものは どれですか。", o:["紙{かみ}の 本{ほん}を 読{よ}む 人{ひと}は へっています。","スマホで 本{ほん}を 読{よ}む 人{ひと}は ふえています。","みんな スマホで 本{ほん}を 読{よ}むように なりました。","紙{かみ}の 本{ほん}の ほうが いいと 思{おも}う 人{ひと}も います。"], a:2, ex:"Question 合わない : on cherche la FAUSSE. みんな (tout le monde) est trop absolu."},
+{p:"タンさんは 日本{にほん}に 来{き}た とき、日本語{にほんご}が ぜんぜん わかりませんでした。でも、毎日{まいにち} 日本人{にほんじん}の ともだちと はなして、1年{ねん}で 日本語{にほんご}が じょうずに なりました。これが いちばん いい べんきょうの しかただと タンさんは 言{い}っています。", q:"「これ」は 何{なん}ですか。", o:["日本{にほん}に 来{く}ること","毎日{まいにち} 日本人{にほんじん}の ともだちと はなすこと","日本語{にほんご}が わからないこと","1年{ねん} 日本{にほん}に いること"], a:1, ex:"これ renvoie à l'action juste avant : parler chaque jour avec des amis japonais."},
+{p:"日本{にほん}では 電車{でんしゃ}の 中{なか}で 電話{でんわ}で はなす ことは よくないと 考{かんが}えられています。ほかの 人{ひと}に めいわくだからです。でも、メールを 書{か}く ことは 問題{もんだい}ありません。", q:"文{ぶん}の 内容{ないよう}に 合{あ}っている ものは どれですか。", o:["電車{でんしゃ}の 中{なか}で 電話{でんわ}で はなしても いいです。","電車{でんしゃ}の 中{なか}で メールを 書{か}いては いけません。","電車{でんしゃ}の 中{なか}の 電話{でんわ}は ほかの 人{ひと}の めいわくに なります。","日本{にほん}の 電車{でんしゃ}には 電話{でんわ}が ありません。"], a:2, ex:"« ほかの人にめいわくだから » = ça dérange les autres."},
+{p:"わたしの まちには 大{おお}きい スーパーが ありません。だから、やさいは 近{ちか}くの 市場{いちば}で 買{か}います。市場{いちば}の やさいは 安{やす}くて、新{あたら}しいです。", q:"なぜ 市場{いちば}で やさいを 買{か}いますか。", o:["スーパーより 高{たか}いから","まちに 大{おお}きい スーパーが ないから","市場{いちば}が 遠{とお}いから","やさいが きらいだから"], a:1, ex:"だから (donc) : la raison est dans la phrase AVANT."},
+{p:"人{ひと}にはよく怒{おこ}る人{ひと}と、怒{おこ}ることができない人{ひと}がいると言{い}われています。ある医者{いしゃ}は、怒{おこ}れない人{ひと}が悪{わる}い気持{きも}ちになったとき、その気持{きも}ちについて紙{かみ}に書{か}いてほしいと話{はな}しています。悪{わる}い気持{きも}ちを書{か}くと、自分{じぶん}が感{かん}じたことをしっかりと考{かんが}えられるそうです。", q:"文{ぶん}の内容{ないよう}に合{あ}っているものはどれですか。", o:["人{ひと}はみんな上手{じょうず}に怒{おこ}ることができません。","医者{いしゃ}が作{つく}った特別{とくべつ}な紙{かみ}を使{つか}わなければなりません。","怒{おこ}れない人{ひと}が悪{わる}い気持{きも}ちを書{か}くと、自分{じぶん}の気持{きも}ちについてよく考{かんが}えることができます。","怒{おこ}る人{ひと}はいません。"], a:2, ex:"Texte simplifié de l'annale 2025. A (みんな) et B (なければならない) sont des pièges absolus."},
+{p:"このアプリでは、毎日{まいにち} 10分{ぷん} べんきょうすれば、3か月{げつ}で ひらがなと かたかなが ぜんぶ 読{よ}めるように なります。", q:"文{ぶん}の 内容{ないよう}に 合{あ}っている ものは どれですか。", o:["1日{にち} 3時間{じかん} べんきょうしなければ なりません。","3か月{げつ}で かなが 読{よ}めるように なります。","かんじが ぜんぶ 読{よ}めるように なります。","10日{とおか}で ひらがなが 読{よ}めます。"], a:1, ex:"3か月 = 3 mois, かな = hiragana + katakana."}
+]}
+);
+
+// ---- Kana : tableaux et exercices générés ----
+const KANA = {
+hira:[["あ","a"],["い","i"],["う","u"],["え","e"],["お","o"],["か","ka"],["き","ki"],["く","ku"],["け","ke"],["こ","ko"],["さ","sa"],["し","shi"],["す","su"],["せ","se"],["そ","so"],["た","ta"],["ち","chi"],["つ","tsu"],["て","te"],["と","to"],["な","na"],["に","ni"],["ぬ","nu"],["ね","ne"],["の","no"],["は","ha"],["ひ","hi"],["ふ","fu"],["へ","he"],["ほ","ho"],["ま","ma"],["み","mi"],["む","mu"],["め","me"],["も","mo"],["や","ya"],["ゆ","yu"],["よ","yo"],["ら","ra"],["り","ri"],["る","ru"],["れ","re"],["ろ","ro"],["わ","wa"],["を","wo (o)"],["ん","n"]],
+kata:[["ア","a"],["イ","i"],["ウ","u"],["エ","e"],["オ","o"],["カ","ka"],["キ","ki"],["ク","ku"],["ケ","ke"],["コ","ko"],["サ","sa"],["シ","shi"],["ス","su"],["セ","se"],["ソ","so"],["タ","ta"],["チ","chi"],["ツ","tsu"],["テ","te"],["ト","to"],["ナ","na"],["ニ","ni"],["ヌ","nu"],["ネ","ne"],["ノ","no"],["ハ","ha"],["ヒ","hi"],["フ","fu"],["ヘ","he"],["ホ","ho"],["マ","ma"],["ミ","mi"],["ム","mu"],["メ","me"],["モ","mo"],["ヤ","ya"],["ユ","yu"],["ヨ","yo"],["ラ","ra"],["リ","ri"],["ル","ru"],["レ","re"],["ロ","ro"],["ワ","wa"],["ヲ","wo (o)"],["ン","n"]]
+};
+(function () {
+  const near = {shi:["tsu","so","n"], tsu:["shi","so","n"], so:["n","shi","tsu"], n:["so","shi","tsu"], nu:["me","ne","re"], me:["nu","ne","no"], ne:["re","nu","wa"], re:["ne","wa","ru"], wa:["ne","re","ha"], ru:["ro","re","ra"], ro:["ru","ra","re"], ha:["ho","wa","ke"], ho:["ha","ma","ke"], ki:["sa","chi","ke"], sa:["ki","chi","so"], chi:["sa","ki","ta"], ku:["fu","ke","ta"], u:["ku","fu","wa"]};
+  ["hira","kata"].forEach(set => {
+    const L = KANA[set]; const unit = JAPATH.find(u => u.kana === set);
+    L.forEach(([k, r], i) => {
+      const pool = (near[r] || []).concat(L.map(x => x[1])).filter((x, j, a) => x !== r && a.indexOf(x) === j);
+      const d = []; let s = i * 7 + 3; while (d.length < 3) { const c = pool[d.length < (near[r] || []).length ? d.length : (s = (s * 13 + 5) % pool.length)]; if (!d.includes(c)) d.push(c); }
+      const pos = (i * 5) % 4; const o = d.slice(); o.splice(pos, 0, r);
+      unit.items.push({q:"「" + k + "」は どう 読{よ}みますか。", big:k, o, a:pos, ex:"「" + k + "」se lit « " + r + " »."});
+    });
+  });
+})();
+
 // Mini-cours sur les notions qui reviennent le plus dans les annales MEXT 2023-2025
 const LESSONS = [
 {id:"en-strat", subj:"en", k:"策", title:"Stratégie de l'épreuve d'anglais (60 min)", mins:5, tags:[], html:`
@@ -968,6 +1387,22 @@ EXTRA.forEach(e => {
   ITEMS[e.id] = {it: e, ex: {id: "extra", subject: e.s, year: "", title: "Exercice inédit"}, sec, idx: 0, id: e.id, subj: e.s, extra: true};
   ORDER.push(e.id);
 });
+const PATHIDS = [];
+const PATH_INSTR = "いちばん てきとうな ものを A〜Dの 中{なか}から 一{ひと}つ えらびなさい。";
+JAPATH.forEach((u, ui) => {
+  const sec = {id: u.id, title: u.title, instr: u.id === "u0" ? "Lis la consigne en japonais et choisis ce qu'elle demande." : u.kana ? "Comment se lit ce signe ? Choisis la bonne lecture." : PATH_INSTR, pts: 1};
+  u.items.forEach((it, i) => {
+    if (!it.t) it.t = u.kana ? "kana" : (u.id === "u0" ? "consignes" : (u.id === "u14" ? "lecture" : (u.tags[0] || "parcours")));
+    const id = "p-" + u.id + "-" + i;
+    ITEMS[id] = {it, ex: {id: "path", subject: "ja", year: "", title: "Parcours japonais"}, sec, idx: i, id, subj: "ja", path: true, unit: u, ui};
+    PATHIDS.push(id);
+  });
+});
+const unitIds = u => u.items.map((_, i) => "p-" + u.id + "-" + i);
+const unitPct = u => { const ids = unitIds(u); return ids.length ? ids.filter(id => S.items[id] && S.items[id].b >= 1).length / ids.length : 0; };
+const unitDone = u => unitPct(u) >= 0.8;
+const curUnit = () => JAPATH.find(u => !unitDone(u)) || null;
+const rubyfy = h => String(h).replace(new RegExp("(" + "[\\u3400-\\u9FFF\\uF900-\\uFAFF々〆ヵヶ]" + "+)\\{([^}]+)\\}", "g"), "<ruby>$1<rt>$2</rt></ruby>").replace(/\[\[(.+?)\]\]/g, "<u>$1</u>");
 const TAGS = {};
 ORDER.forEach(id => { const t = ITEMS[id].it.t; if (t) (TAGS[t] = TAGS[t] || []).push(id); });
 
@@ -1127,7 +1562,7 @@ function streak() {
   while (S.days[d] && S.days[d].n) { n++; d = addDays(d, -1); }
   return n;
 }
-const dueIds = () => ORDER.filter(id => S.items[id] && S.items[id].b < BOX.length - 1 && S.items[id].d <= today() && S.items[id].w > 0);
+const dueIds = () => ORDER.concat(PATHIDS).filter(id => S.items[id] && S.items[id].b < BOX.length - 1 && S.items[id].d <= today() && S.items[id].w > 0);
 function tagStats() {
   return Object.keys(TAGS).map(t => { let c = 0, w = 0; TAGS[t].forEach(id => { const r = S.items[id]; if (r) { c += r.c; w += r.w; } }); return {t, c, w, n: c + w, acc: c + w ? c / (c + w) : null, total: TAGS[t].length}; });
 }
@@ -1156,7 +1591,10 @@ function mission() {
   if (S.mission && S.mission.date === today()) return S.mission;
   const rnd = seeded(today() + S.xp);
   const enN = Math.max(4, Math.round(S.goal * 0.55)), jaN = Math.max(3, S.goal - enN);
-  S.mission = {date: today(), en: pickPractice("en", enN, rnd), ja: pickPractice("ja", jaN, rnd), iq: Math.floor(rnd() * INTERVIEW.length), done: {}};
+  const cu = curUnit(); let ja = [];
+  if (cu) { const ids = unitIds(cu); const todo = ids.filter(id => !S.items[id] || S.items[id].b < 1).sort(() => rnd() - 0.5); ja = todo.concat(ids.filter(id => !todo.includes(id))).slice(0, Math.min(jaN, Math.max(4, jaN - 2))); }
+  ja = ja.concat(pickPractice("ja", jaN - ja.length, rnd));
+  S.mission = {date: today(), en: pickPractice("en", enN, rnd), ja, iq: Math.floor(rnd() * INTERVIEW.length), done: {}, unit: cu ? cu.id : null};
   save(); return S.mission;
 }
 
@@ -1191,20 +1629,22 @@ function vHome() {
   '<div class="steps"><div><b>Appel</b>mi-avril · ' + cd(call) + '</div><div><b>Dépôt</b>juin · ' + cd(dead) + '</div><div><b>Écrit + oral</b>juillet · ' + cd(exam) + '</div></div></section>' +
   '<div class="sec-h"><h2>Mission du jour</h2><span>≈ ' + Math.round(S.goal * 1.1 + 5) + ' min · ' + S.xp + ' XP</span></div><div class="list">' +
   row("en", "EN", m.en.length + " questions d'anglais", enDone + "/" + m.en.length + " · annales + exercices inédits", "mission-en", enDone === m.en.length) +
-  row("ja", "日", m.ja.length + " questions de japonais", jaDone + "/" + m.ja.length + " · grammaire, kanji, lecture", "mission-ja", jaDone === m.ja.length) +
+  row("ja", "日", m.ja.length + " questions de japonais", jaDone + "/" + m.ja.length + (m.unit ? " · étape « " + esc(JAPATH.find(u => u.id === m.unit).title) + " » + annales" : " · grammaire, kanji, lecture"), "mission-ja", jaDone === m.ja.length) +
   row("int", "話", "1 question d'entretien à l'oral", esc(INTERVIEW[m.iq].q), "mission-iv", ivDone) + '</div>' +
   (due ? '<button class="row" data-act="review"><span class="ic gen">復</span><span class="tx"><b>' + due + ' erreur' + (due > 1 ? "s" : "") + ' à revoir</b><span>Répétition espacée : on revoit ce qui t\'a fait trébucher</span></span>' + ICON.chev + '</button>' : "") +
-  '<div class="tiles">' + tile("英", "Anglais", "cours-en") + tile("日", "Japonais", "cours-ja") + tile("話", "Entretien", "entretien") + tile("試", "Examens blancs", "pratique") + tile("札", "Fiches", "flash") + tile("書", "Dossier", "dossier") + '</div>' + nav("home");
+  '<div class="tiles">' + tile("英", "Anglais", "cours-en") + tile("日", "Parcours japonais", "parcours") + tile("話", "Entretien", "entretien") + tile("試", "Examens blancs", "pratique") + tile("札", "Fiches", "flash") + tile("書", "Dossier", "dossier") + '</div>' + nav("home");
 }
 function row(cls, k, title, sub, act, done) { return '<button class="row' + (done ? " done" : "") + '" data-act="' + act + '"><span class="ic ' + cls + '">' + (done ? "済" : k) + '</span><span class="tx"><b>' + title + '</b><span>' + sub + '</span></span>' + ICON.chev + '</button>'; }
 function tile(k, label, to) { return '<button class="tile" data-go="' + to + '"><span class="k" aria-hidden="true">' + k + '</span>' + label + '</button>'; }
 function fmtDate(iso) { try { return new Date(iso + "T12:00:00").toLocaleDateString("fr-FR", {day: "numeric", month: "long", year: "numeric"}); } catch (e) { return iso; } }
 
+let LASTTAB = "en";
 function vCours(subj) {
-  subj = subj || VIEW.subj || "en";
+  subj = subj || VIEW.subj || LASTTAB; LASTTAB = subj;
   const tabs = [["en", "Anglais"], ["ja", "Japonais"], ["int", "Entretien"]];
   const ls = LESSONS.filter(l => l.subj === subj);
   return '<div class="top"><h1 style="font-size:26px">Cours</h1></div><div class="seg-tabs" role="tablist">' + tabs.map(t => '<button role="tab" aria-selected="' + (t[0] === subj) + '" class="' + (t[0] === subj ? "on" : "") + '" data-act="cours-tab" data-v="' + t[0] + '">' + t[1] + '</button>').join("") + '</div>' +
+  (subj === "ja" ? pathCard() : "") +
   '<p class="small muted" style="margin:0">Les notions classées par fréquence dans les annales 2023 à 2025. Chaque cours se termine par un entraînement ciblé.</p><div class="list">' +
   ls.map(l => { const st = lessonStat(l); return '<button class="row" data-act="lesson" data-v="' + l.id + '"><span class="ic ' + l.subj + '">' + l.k + '</span><span class="tx"><b>' + esc(l.title) + '</b><span>' + l.mins + ' min' + (st ? " · " + st : "") + '</span></span>' + ICON.chev + '</button>'; }).join("") + '</div>' + nav("cours");
 }
@@ -1216,6 +1656,33 @@ function vLesson() {
     (ids.length ? '<button class="btn sak" data-act="lesson-quiz" data-v="' + l.id + '">S\'entraîner sur cette notion (' + Math.min(ids.length, 12) + ' questions)</button>' : (l.subj === "int" ? '<button class="btn sak" data-go="entretien">Passer à la pratique de l\'entretien</button>' : '<button class="btn sak" data-go="pratique">Faire un examen blanc</button>')) + nav("cours");
 }
 
+function pathCard() {
+  const done = JAPATH.filter(unitDone).length; const cu = curUnit();
+  return '<button class="row" data-go="parcours" style="background:var(--hero);color:var(--hero-ink);border:none"><span class="ic" style="background:var(--sakura);color:#fff">道</span><span class="tx"><b>Parcours japonais pas à pas</b><span style="color:var(--hero-muted)">' + done + '/' + JAPATH.length + ' étapes validées' + (cu ? ' · en cours : ' + esc(cu.title) : ' · terminé !') + '</span></span>' + ICON.chev + '</button>';
+}
+function vParcours() {
+  const cu = curUnit();
+  return header("Parcours japonais", "De zéro au niveau des questions de l'examen", "cours") +
+  '<p class="small muted" style="margin:0">Une étape est validée quand tu réussis 80 % de ses exercices. Fais-les dans l\'ordre : chaque étape s\'appuie sur la précédente. Les exercices ratés reviennent dans tes révisions.</p><div class="list">' +
+  JAPATH.map((u, i) => { const p = unitPct(u), d = unitDone(u), cur = cu && cu.id === u.id, locked = !d && !cur && i > 0 && !unitDone(JAPATH[i - 1]);
+    return '<button class="row' + (d ? " done" : "") + '" data-act="unit" data-v="' + u.id + '"' + (cur ? ' style="border-color:var(--sakura);border-width:2px"' : "") + '><span class="ic ja"' + (locked ? ' style="opacity:.5"' : "") + '>' + (d ? "済" : u.k) + '</span><span class="tx"><b>' + i + '. ' + esc(u.title) + '</b><span>' + (d ? "Validée" : cur ? "À faire maintenant · " : locked ? "Conseillé après l\'étape " + (i - 1) + " · " : "") + (d ? "" : Math.round(p * 100) + " %") + '</span><span class="lbar" style="margin-top:4px"><i style="width:' + Math.round(p * 100) + '%"></i></span></span>' + ICON.chev + '</button>'; }).join("") + '</div>' + nav("cours");
+}
+function kanaGrid(set) {
+  return '<div class="kgrid">' + KANA[set].map(([k, r]) => '<button data-act="say" data-l="ja" data-v="' + k + '"><b>' + k + '</b><small>' + r + '</small></button>').join("") + '</div>';
+}
+function vUnit() {
+  const u = JAPATH.find(x => x.id === VIEW.id); const i = JAPATH.indexOf(u); const ids = unitIds(u); const p = unitPct(u);
+  const annale = ORDER.filter(id => ITEMS[id].subj === "ja" && u.tags.includes(ITEMS[id].it.t));
+  let html = rubyfy(u.html).replace("KANAGRID", u.kana ? kanaGrid(u.kana) : "");
+  return header("Étape " + i + " · " + esc(u.title), unitDone(u) ? "Validée" : Math.round(p * 100) + " % réussi", "parcours") +
+  '<div class="card" style="background:var(--indigo-soft);border:none"><b>Objectif</b><span>' + esc(u.goal) + '</span></div>' +
+  '<article class="card lesson">' + html + '</article>' +
+  (u.ex && u.ex.length ? '<div class="card"><b>Exemples à écouter</b>' + u.ex.map(e => '<div style="display:flex;gap:10px;align-items:center;border-bottom:1px solid var(--line);padding:6px 0"><button class="iconbtn" data-act="say" data-l="ja" data-v="' + esc(plainJa(e[0])) + '" aria-label="Écouter">' + ICON.spk + '</button><span style="display:flex;flex-direction:column"><span lang="ja" style="font-size:18px;line-height:2">' + fmt(e[0]) + '</span><span class="small muted">' + esc(e[1]) + '</span></span></div>').join("") + '</div>' : "") +
+  (u.voc && u.voc.length ? '<div class="card"><b>Vocabulaire de l\'étape</b>' + u.voc.map(v => '<button class="link" style="justify-content:flex-start;width:100%;color:var(--ink);font-weight:500;gap:10px;border-bottom:1px solid var(--line)" data-act="say" data-l="ja" data-v="' + esc(plainJa(v[0]).replace(/（.*?）/g, "").split("/")[0]) + '">' + ICON.spk + '<span lang="ja" style="font-size:17px;flex-shrink:0">' + fmt(v[0]) + '</span><span class="small muted" style="text-align:left">' + esc(v[1]) + '</span></button>').join("") + '</div>' : "") +
+  '<button class="btn sak" data-act="unit-quiz" data-v="' + u.id + '">' + (u.kana ? "S'entraîner : 12 signes" : "Faire les exercices (" + ids.length + ")") + '</button>' +
+  (annale.length ? '<button class="btn alt" data-act="unit-annale" data-v="' + u.id + '">Questions de l\'examen sur ce thème (' + annale.length + ')</button>' : "") +
+  (i < JAPATH.length - 1 ? '<button class="link" style="align-self:center" data-act="unit" data-v="' + JAPATH[i + 1].id + '">Étape suivante : ' + esc(JAPATH[i + 1].title) + ' ' + ICON.chev + '</button>' : "") + nav("cours");
+}
 function vPratique() {
   const byYear = EXAMS.slice().sort((a, b) => b.year - a.year || a.id.localeCompare(b.id));
   const best = id => { const xs = S.exams.filter(e => e.id === id); return xs.length ? Math.max(...xs.map(e => Math.round(e.score / e.max * 100))) + " %" : null; };
@@ -1252,7 +1719,7 @@ function vQuiz() {
   let topRight = '<span style="font-weight:700;font-size:14px">' + (Q.i + 1) + '/' + Q.ids.length + '</span>';
   if (Q.mode === "exam") { const left = Math.max(0, Q.deadline - Date.now()); topRight = '<span class="timer' + (left < 300000 ? " low" : "") + '" id="tmr">' + ICON.clock + fmtT(left) + '</span>'; }
   let h = '<div class="qhead"><button class="iconbtn" data-act="quit" aria-label="Quitter">' + ICON.close + '</button><div class="prog" role="progressbar" aria-valuenow="' + pct + '" aria-valuemin="0" aria-valuemax="100"><i style="width:' + pct + '%"></i></div>' + topRight + '</div>';
-  const src = X.extra ? "EXERCICE INÉDIT" : ("ANNALES " + X.ex.year + " · " + (ja ? "日本語" : "ENGLISH") + " · " + sec.id + "-" + (X.idx + 1));
+  const src = X.path ? "PARCOURS · ÉTAPE " + X.ui : X.extra ? "EXERCICE INÉDIT" : ("ANNALES " + X.ex.year + " · " + (ja ? "日本語" : "ENGLISH") + " · " + sec.id + "-" + (X.idx + 1));
   h += '<span class="tag">' + src + (it.t ? " · " + esc(it.t) : "") + '</span>';
   h += '<p class="small muted" style="margin:0">' + (ja ? fmt(sec.instr) : esc(sec.instr)) + '</p>';
   const passage = it.p || sec.passage;
@@ -1261,6 +1728,7 @@ function vQuiz() {
     if (sec.cloze) { const n = X.idx + 1; ph = ph.replace(new RegExp("\\(" + n + "\\)"), '<span class="hl">(' + n + ')</span>'); }
     h += '<details class="passage" ' + (Q.openP === false ? "" : "open") + '><summary>' + (sec.cloze ? "Texte à trous" : "Texte") + ' <span class="small muted">afficher / masquer</span></summary><div class="pt' + (ja ? " ja" : "") + '">' + ph + '</div></details>';
   }
+  if (it.big) h += '<button class="bigkana" data-act="say" data-l="ja" data-v="' + it.big + '" aria-label="Écouter ce signe">' + it.big + '</button>';
   if (sec.err) {
     const sg = segs(it.q);
     h += '<p class="qtext err">' + sg.map(s => '<span class="seg' + (show && L.indexOf(s.l) === it.a ? " bad" : "") + '"><b>(' + s.l + ')</b>' + esc(s.t) + '</span>').join(" ") + '</p>';
@@ -1306,16 +1774,17 @@ function finishQuiz() {
   Q.result = {score, max, good, bySec, wrongTags, dur: Math.round((Date.now() - Q.start) / 1000)};
   if (Q.mode === "exam") { S.exams.push({id: Q.examId, subj: Q.subj, date: today(), score, max, dur: Q.result.dur}); addXp(50); }
   if (Q.missionKey) { const m = mission(); Q.ids.forEach(id => { m.done[id] = Q.ans[id] === ITEMS[id].it.a ? 1 : 0; }); const all = m.en.concat(m.ja).every(id => m.done[id] !== undefined); if (all && !m.bonus) { m.bonus = 1; addXp(30); } }
+  if (Q.unitId) { const u = JAPATH.find(x => x.id === Q.unitId); Q.unitNow = unitDone(u); if (Q.unitNow && !Q.unitBefore) { addXp(50); Q.unitNew = true; chime(true); } }
   save(); VIEW = {name: "result"}; render(); window.scrollTo(0, 0);
 }
 function vResult() {
   const Q = QZ, R = Q.result; const pct = Math.round(R.score / R.max * 100);
   const msg = pct >= 80 ? "Excellent niveau. Continue comme ça." : pct >= 60 ? "Bon travail. Revois les notions ci-dessous." : pct >= 40 ? "Base correcte. Les cours ciblés vont t'aider." : "On construit : refais les cours puis réessaie.";
   const tags = Object.entries(R.wrongTags).sort((a, b) => b[1] - a[1]).slice(0, 5);
-  let h = '<div class="top"><h1 style="font-size:24px">' + esc(Q.title) + '</h1></div><section class="hero"><div class="sun" aria-hidden="true"></div><span class="eyebrow">' + (Q.mode === "exam" ? "Note sur 100 (barème officiel)" : "Résultat") + '</span><div class="big">' + (Q.mode === "exam" ? R.score + "<span style=\"font-size:24px\"> / " + R.max + "</span>" : R.good + "<span style=\"font-size:24px\"> / " + Q.ids.length + "</span>") + '</div><span>' + msg + '</span>' + (Q.mode === "exam" ? '<span class="small" style="color:var(--hero-muted)">Durée : ' + Math.floor(R.dur / 60) + ' min ' + (R.dur % 60) + ' s</span>' : "") + '</section>';
+  let h = '<div class="top"><h1 style="font-size:24px">' + esc(Q.title) + '</h1></div>' + (Q.unitNew ? '<div class="card" style="border-color:var(--good);border-width:2px"><b style="color:var(--good)">Étape validée ! +50 XP</b><span>L\'étape suivante du parcours est débloquée.</span></div>' : (Q.unitId && !Q.unitNow ? '<div class="card"><b>Encore un effort</b><span class="small">Il faut réussir 80 % des exercices de l\'étape pour la valider. Les questions ratées reviendront.</span></div>' : "")) + '<section class="hero"><div class="sun" aria-hidden="true"></div><span class="eyebrow">' + (Q.mode === "exam" ? "Note sur 100 (barème officiel)" : "Résultat") + '</span><div class="big">' + (Q.mode === "exam" ? R.score + "<span style=\"font-size:24px\"> / " + R.max + "</span>" : R.good + "<span style=\"font-size:24px\"> / " + Q.ids.length + "</span>") + '</div><span>' + msg + '</span>' + (Q.mode === "exam" ? '<span class="small" style="color:var(--hero-muted)">Durée : ' + Math.floor(R.dur / 60) + ' min ' + (R.dur % 60) + ' s</span>' : "") + '</section>';
   if (Q.mode === "exam") h += '<div class="card"><b>Par partie</b>' + Object.values(R.bySec).map(s => '<div style="display:flex;flex-direction:column;gap:4px"><div style="display:flex;justify-content:space-between;font-size:14px"><span>' + esc(s.title) + '</span><b>' + s.ok + '/' + s.n + '</b></div><div class="lbar"><i style="width:' + Math.round(s.ok / s.n * 100) + '%"></i></div></div>').join("") + '</div>';
   if (tags.length) h += '<div class="card"><b>Notions à revoir</b><div class="chips">' + tags.map(t => '<button class="chip r" data-act="tag-quiz" data-v="' + esc(t[0]) + '">' + esc(t[0]) + ' · ' + t[1] + '</button>').join("") + '</div><span class="small muted">Touche une notion pour t\'entraîner dessus.</span></div>';
-  h += '<div class="btns">' + (Q.mode === "exam" ? '<button class="btn" data-act="review-exam">Voir le corrigé détaillé</button>' : "") + '<button class="btn ' + (Q.mode === "exam" ? "alt" : "") + '" data-go="' + (Q.back || "home") + '">Terminer</button></div>';
+  h += '<div class="btns">' + (Q.mode === "exam" ? '<button class="btn" data-act="review-exam">Voir le corrigé détaillé</button>' : "") + '' + (Q.backView ? '<button class="btn" data-act="qback">Retour à l\'étape</button>' : '<button class="btn ' + (Q.mode === "exam" ? "alt" : "") + '" data-go="' + (Q.back || "home") + '">Terminer</button>') + '</div>';
   return h + nav(Q.back && TABS.some(t => t[0] === Q.back) ? Q.back : "home");
 }
 
@@ -1460,7 +1929,7 @@ function render() {
   else if (V === "lesson") h = vLesson(); else if (V === "pratique") h = vPratique(); else if (V === "annale") h = vAnnale();
   else if (V === "quiz") h = vQuiz(); else if (V === "result") h = vResult(); else if (V === "flash") h = vFlash();
   else if (V === "entretien") h = vEntretien(); else if (V === "iv") h = vIv(); else if (V === "iv-end") h = vIvEnd(); else if (V === "plan") h = vPlan();
-  else if (V === "progres") h = vProgres(); else if (V === "profil") h = vProfil(); else if (V === "dossier") h = vDossier(); else h = vHome();
+  else if (V === "progres") h = vProgres(); else if (V === "profil") h = vProfil(); else if (V === "dossier") h = vDossier(); else if (V === "parcours") h = vParcours(); else if (V === "unit") h = vUnit(); else h = vHome();
   app.innerHTML = h;
 }
 document.addEventListener("input", e => { if (e.target.id === "ans" && IV) { IV.text = e.target.value; const w = document.getElementById("wc"); if (w) w.textContent = wc(IV.text); } });
@@ -1473,7 +1942,7 @@ document.addEventListener("click", async e => {
   else if (a === "prev") { if (QZ.i > 0) { QZ.i--; render(); } }
   else if (a === "jump") { QZ.i = +v; render(); }
   else if (a === "flag") { const id = QZ.ids[QZ.i]; QZ.flags[id] = !QZ.flags[id]; render(); }
-  else if (a === "quit") { if (QZ.mode === "exam" && !QZ.finished) { if (!QZ.qconfirm) { QZ.qconfirm = 1; toast("Touche encore la croix pour abandonner l'examen."); return; } } const back = QZ.back || "home"; QZ = null; go(back); }
+  else if (a === "quit") { if (QZ.mode === "exam" && !QZ.finished) { if (!QZ.qconfirm) { QZ.qconfirm = 1; toast("Touche encore la croix pour abandonner l'examen."); return; } } const back = QZ.back || "home", bv = QZ.backView; QZ = null; if (bv) go(bv.name, bv); else go(back); }
   else if (a === "listen") { const X = ITEMS[QZ.ids[QZ.i]]; const it = X.it; let t;
     if (X.sec.err) { t = segs(it.q).map(s => s.t).join(" "); if (it.fix) { const fx = it.fix.split("→"); t = t.replace(fx[0].trim().replace(/…$/, ""), fx[1].trim()); } }
     else t = X.subj === "ja" ? plainJa(it.q).replace(/＿＿/, plainJa(it.o[it.a])) : it.q.replace(/\(＿＿\)|（＿＿）|＿＿/, it.o[it.a]);
@@ -1503,6 +1972,11 @@ document.addEventListener("click", async e => {
   else if (a === "iv-quit") { stopMic(); IV = null; go("entretien"); }
   else if (a === "mic") { toggleMic(); }
   else if (a === "plan") { go("plan"); }
+  else if (a === "unit") { go("unit", {id: v}); }
+  else if (a === "unit-quiz") { const u = JAPATH.find(x => x.id === v); const ids = unitIds(u); const weak = shuffle(ids.filter(id => !S.items[id] || S.items[id].b < 1)); const list = weak.concat(shuffle(ids.filter(id => !weak.includes(id)))).slice(0, u.kana ? 12 : ids.length);
+    startQuiz(list, {title: "Étape " + JAPATH.indexOf(u) + " · " + u.title, unitId: u.id, unitBefore: unitDone(u), backView: {name: "unit", id: u.id}, back: "cours"}); }
+  else if (a === "unit-annale") { const u = JAPATH.find(x => x.id === v); const ids = shuffle(ORDER.filter(id => ITEMS[id].subj === "ja" && u.tags.includes(ITEMS[id].it.t))).slice(0, 10); startQuiz(ids, {title: "Niveau examen · " + u.title, backView: {name: "unit", id: u.id}, back: "cours"}); }
+  else if (a === "qback") { const bv = QZ && QZ.backView; QZ = null; if (bv) go(bv.name, bv); else go("home"); }
   else if (a === "plan-eval") { evalPlan(); }
   else if (a === "save-profil") { S.name = document.getElementById("pn").value.trim() || "Mohamed"; S.field = document.getElementById("pf").value.trim(); S.topic = document.getElementById("pt").value.trim(); const d = document.getElementById("pd").value; if (/^\d{4}-\d{2}-\d{2}$/.test(d)) S.examDate = d; S.goal = +document.getElementById("pg").value; S.theme = document.getElementById("pth").value; S.sound = document.getElementById("ps").checked; if (S.mission) S.mission.date = ""; save(); toast("Réglages enregistrés."); render(); }
   else if (a === "grok-save") { S.grokKey = document.getElementById("gk").value.trim(); S.grokModel = document.getElementById("gm").value.trim() || defModel(); save(); toast(S.grokKey ? "Clé enregistrée sur cet appareil." : "Clé effacée."); render(); }
