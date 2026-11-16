@@ -157,6 +157,12 @@ label.f{display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:70
 .kgrid button{background:var(--paper);border:1px solid var(--line);border-radius:10px;min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;color:var(--ink)}
 .kgrid b{font-size:22px;font-family:var(--display)}.kgrid small{font-size:11px;color:var(--muted)}
 .bigkana{align-self:center;font-family:var(--display);font-size:96px;line-height:1.1;font-weight:800;background:var(--card);border:1px solid var(--line);border-radius:24px;width:160px;height:160px;color:var(--ink)}
+.say{width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--sakura);display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;padding:0;margin-left:4px;flex-shrink:0}
+.say svg{width:16px;height:16px}
+.dtab{width:100%;border-collapse:collapse;font-size:14px}
+.dtab td,.dtab th{border-bottom:1px solid var(--line);padding:6px 4px;text-align:left;vertical-align:top}
+.dtab th{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.dtab td:first-child{white-space:nowrap}
 
 #app{padding-top:env(safe-area-inset-top)}
 </style>
@@ -1403,6 +1409,16 @@ const unitPct = u => { const ids = unitIds(u); return ids.length ? ids.filter(id
 const unitDone = u => unitPct(u) >= 0.8;
 const curUnit = () => JAPATH.find(u => !unitDone(u)) || null;
 const rubyfy = h => String(h).replace(new RegExp("(" + "[\\u3400-\\u9FFF\\uF900-\\uFAFF々〆ヵヶ]" + "+)\\{([^}]+)\\}", "g"), "<ruby>$1<rt>$2</rt></ruby>").replace(/\[\[(.+?)\]\]/g, "<u>$1</u>");
+const JPRE = /[\u3040-\u30FF\u3400-\u9FFF々〆ヵヶー]+/g;
+function jpText(inner) { const t = String(inner).replace(/<rt>[\s\S]*?<\/rt>/g, "").replace(/<[^>]+>/g, "").replace(/[＿_]{2,}/g, "、").replace(/〜/g, "").replace(/([\u3040-\u30FF\u3400-\u9FFF々ー])\s+(?=[\u3040-\u30FF\u3400-\u9FFF々ー])/g, "$1"); const m = t.match(JPRE); return m ? m.join("、") : ""; }
+function addSpeakers(html) {
+  return String(html).replace(/<(td|li|p)>([\s\S]*?)<\/\1>/g, (m, tag, inner) => {
+    const jt = jpText(inner); if (!jt) return m;
+    if (tag === "p") { const plain = inner.replace(/<rt>[\s\S]*?<\/rt>/g, "").replace(/<[^>]+>/g, "").replace(/\s/g, ""); if (jt.replace(/、/g, "").length / Math.max(1, plain.length) < 0.5) return m; }
+    return "<" + tag + ">" + inner + ' <button class="say" data-act="say" data-l="ja" data-v="' + esc(jt) + '" aria-label="Écouter le japonais">' + ICON.spk + "</button></" + tag + ">";
+  });
+}
+let DECOMP = {}; try { DECOMP = JSON.parse(localStorage.getItem("mextprep.decomp") || "{}"); } catch (e) {}
 const TAGS = {};
 ORDER.forEach(id => { const t = ITEMS[id].it.t; if (t) (TAGS[t] = TAGS[t] || []).push(id); });
 
@@ -1652,7 +1668,7 @@ function lessonIds(l) { return ORDER.filter(id => l.tags.includes(ITEMS[id].it.t
 function lessonStat(l) { const ids = lessonIds(l); if (!ids.length) return ""; const seen = ids.filter(id => S.items[id]); const ok = ids.filter(id => S.items[id] && S.items[id].b >= 1).length; return ids.length + " questions · " + (seen.length ? Math.round(ok / ids.length * 100) + " % maîtrisé" : "pas encore commencé"); }
 function vLesson() {
   const l = LESSONS.find(x => x.id === VIEW.id); const ids = lessonIds(l);
-  return header(esc(l.title), l.mins + " min de lecture", "cours") + '<article class="card lesson">' + l.html + '</article>' +
+  return header(esc(l.title), l.mins + " min de lecture", "cours") + '<article class="card lesson">' + addSpeakers(rubyfy(l.html)) + '</article>' +
     (ids.length ? '<button class="btn sak" data-act="lesson-quiz" data-v="' + l.id + '">S\'entraîner sur cette notion (' + Math.min(ids.length, 12) + ' questions)</button>' : (l.subj === "int" ? '<button class="btn sak" data-go="entretien">Passer à la pratique de l\'entretien</button>' : '<button class="btn sak" data-go="pratique">Faire un examen blanc</button>')) + nav("cours");
 }
 
@@ -1673,7 +1689,7 @@ function kanaGrid(set) {
 function vUnit() {
   const u = JAPATH.find(x => x.id === VIEW.id); const i = JAPATH.indexOf(u); const ids = unitIds(u); const p = unitPct(u);
   const annale = ORDER.filter(id => ITEMS[id].subj === "ja" && u.tags.includes(ITEMS[id].it.t));
-  let html = rubyfy(u.html).replace("KANAGRID", u.kana ? kanaGrid(u.kana) : "");
+  let html = addSpeakers(rubyfy(u.html)).replace("KANAGRID", u.kana ? kanaGrid(u.kana) : "");
   return header("Étape " + i + " · " + esc(u.title), unitDone(u) ? "Validée" : Math.round(p * 100) + " % réussi", "parcours") +
   '<div class="card" style="background:var(--indigo-soft);border:none"><b>Objectif</b><span>' + esc(u.goal) + '</span></div>' +
   '<article class="card lesson">' + html + '</article>' +
@@ -1740,7 +1756,8 @@ function vQuiz() {
   if (show) {
     const ok = Q.ans[id] === it.a;
     h += '<div class="fb ' + (ok ? "ok" : "ko") + '" role="status"><h3>' + (ok ? pickPraise() : "Pas tout à fait. Réponse : " + L[it.a]) + '</h3>' + (it.fix ? '<div class="fix">Correction : ' + esc(it.fix) + '</div>' : "") + '<span style="font-size:15px">' + (ja ? fmt(it.ex) : esc(it.ex)) + '</span>' +
-      '<button class="link" data-act="listen">' + ICON.spk + 'Écouter la phrase corrigée</button></div>';
+      '<button class="link" data-act="listen">' + ICON.spk + 'Écouter la phrase corrigée</button>' +
+      (DECOMP[id] ? decompHtml(DECOMP[id], ja) : '<button class="btn alt sm" data-act="decomp"' + (Q.dbusy ? " disabled" : "") + '>' + (Q.dbusy ? "Analyse mot à mot en cours…" : "Décortiquer la question mot à mot") + '</button>') + '</div>';
   }
   if (Q.mode === "exam") {
     h += '<div class="grid10" aria-label="Aller à une question">' + Q.ids.map((x, i) => '<button data-act="jump" data-v="' + i + '" class="' + (Q.ans[x] !== undefined ? "a " : "") + (Q.flags[x] ? "f " : "") + (i === Q.i ? "cur" : "") + '" aria-label="Question ' + (i + 1) + '">' + (i + 1) + '</button>').join("") + '</div>';
@@ -1776,6 +1793,47 @@ function finishQuiz() {
   if (Q.missionKey) { const m = mission(); Q.ids.forEach(id => { m.done[id] = Q.ans[id] === ITEMS[id].it.a ? 1 : 0; }); const all = m.en.concat(m.ja).every(id => m.done[id] !== undefined); if (all && !m.bonus) { m.bonus = 1; addXp(30); } }
   if (Q.unitId) { const u = JAPATH.find(x => x.id === Q.unitId); Q.unitNow = unitDone(u); if (Q.unitNow && !Q.unitBefore) { addXp(50); Q.unitNew = true; chime(true); } }
   save(); VIEW = {name: "result"}; render(); window.scrollTo(0, 0);
+}
+function localDecomp(X) {
+  const it = X.it; const src = [it.q].concat(it.o || []).join(" ");
+  const seen = {}; const mots = [];
+  src.replace(new RegExp("(" + KANJI + "+)\\{([^}]+)\\}", "g"), (m, k, r) => { if (!seen[k]) { seen[k] = 1; mots.push({mot: k, lecture: r, sens: "", role: ""}); } return m; });
+  return {local: true, mots};
+}
+function decompHtml(d, ja) {
+  const L2 = ja ? "ja" : "en";
+  let h = '<div class="card decomp" style="background:var(--paper)"><b>Décorticage</b>';
+  if (d.traduction) h += '<div><span class="small muted">Traduction</span><p style="margin:2px 0 0;font-size:15px">' + esc(d.traduction) + '</p></div>';
+  if (d.mots && d.mots.length) h += '<div class="tablewrap"><table class="dtab"><tr><th>' + (ja ? "Mot" : "Mot / expression") + '</th><th>Sens</th></tr>' + d.mots.map(w => '<tr><td><button class="say" data-act="say" data-l="' + L2 + '" data-v="' + esc(ja ? (w.lecture || w.mot) : w.mot) + '" aria-label="Écouter">' + ICON.spk + '</button> <span lang="' + L2 + '" style="font-size:' + (ja ? 18 : 15) + 'px">' + (ja && w.lecture && w.lecture !== w.mot ? '<ruby>' + esc(w.mot) + '<rt>' + esc(w.lecture) + '</rt></ruby>' : esc(w.mot)) + '</span>' + (!ja && w.lecture ? '<br><span class="small muted">' + esc(w.lecture) + '</span>' : "") + '</td><td>' + esc(w.sens || "") + (w.role ? '<br><span class="small muted">' + esc(w.role) + '</span>' : "") + '</td></tr>').join("") + '</table></div>';
+  if (d.grammaire && d.grammaire.length) h += '<div><span class="small muted">Points de grammaire</span><ul style="margin:4px 0;padding-left:18px;font-size:15px">' + d.grammaire.map(g => '<li><b lang="' + L2 + '">' + esc(g.point || "") + '</b> : ' + esc(g.explication || "") + '</li>').join("") + '</ul></div>';
+  if (d.phrase_cle) h += '<div><span class="small muted">Phrase clé du texte</span><p style="margin:2px 0 0;font-size:15px" lang="' + L2 + '">' + esc(d.phrase_cle) + '</p></div>';
+  if (d.pourquoi) h += '<div><span class="small muted">Pourquoi c\'est la bonne réponse</span><p style="margin:2px 0 0;font-size:15px">' + esc(d.pourquoi) + '</p></div>';
+  if (d.pieges) h += '<div><span class="small muted">Pourquoi les autres sont fausses</span><p style="margin:2px 0 0;font-size:15px">' + esc(d.pieges) + '</p></div>';
+  if (d.astuce) h += '<p class="tip" style="margin:0">' + esc(d.astuce) + '</p>';
+  if (d.local) h += '<span class="small muted">Lectures des kanji de la question. ' + (hasAI() ? "" : (IN_CLAUDE ? "Autorise l'analyse par Claude pour le décorticage complet." : "Ajoute ta clé Groq dans le Profil pour le décorticage complet.")) + '</span>' + (hasAI() ? '<button class="btn alt sm" data-act="decomp" data-v="full">Décorticage complet</button>' : "");
+  return h + '</div>';
+}
+async function decomp(full) {
+  const Q = QZ; const id = Q.ids[Q.i]; const X = ITEMS[id]; const it = X.it, sec = X.sec, ja = X.subj === "ja";
+  if (!hasAI()) { DECOMP[id] = localDecomp(X); render(); return; }
+  Q.dbusy = true; render();
+  const plain = t => ja ? plainKanji(t) + "（" + plainJa(t) + "）" : t;
+  let qtext = sec.err ? segs(it.q).map(s => "(" + s.l + ") " + s.t).join(" ") : plain(it.q);
+  const opts = sec.err ? "" : it.o.map((o, i) => L[i] + ". " + (ja ? plainKanji(o) : o)).join("\n");
+  const passage = (it.p || sec.passage || "");
+  const prompt = "Tu es un professeur de " + (ja ? "japonais" : "anglais") + " pour un francophone débutant qui prépare l'examen de la bourse MEXT. Décortique cette question d'examen MOT À MOT pour qu'il la comprenne et la retienne.\n\nConsigne : " + (ja ? plainKanji(sec.instr) : sec.instr) + "\nQuestion : " + qtext + (opts ? "\nOptions :\n" + opts : "") + "\nBonne réponse : " + L[it.a] + (it.fix ? " (correction : " + it.fix + ")" : "") + "\nExplication courte : " + (ja ? plainKanji(it.ex) : it.ex) +
+    (passage ? "\n\nTexte de référence (extrait) :\n" + (ja ? plainKanji(passage) : passage).slice(0, 2500) : "") +
+    "\n\nRéponds UNIQUEMENT avec un objet JSON valide :\n{\"traduction\": \"traduction française naturelle de la question (avec la bonne réponse insérée)\", \"mots\": [" + (ja ? "{\"mot\": \"mot tel qu'écrit (kanji ou kana)\", \"lecture\": \"lecture en hiragana\", \"sens\": \"sens en français\", \"role\": \"nature et rôle : particule, verbe forme て, nom…\"} pour CHAQUE mot et particule de la question, dans l'ordre, sans en sauter" : "{\"mot\": \"mot ou expression\", \"lecture\": \"prononciation simplifiée pour un francophone\", \"sens\": \"sens en français\", \"role\": \"nature grammaticale\"} pour chaque mot important ou expression (au moins 8)") + "], \"grammaire\": [{\"point\": \"structure\", \"explication\": \"explication simple en français avec un 2e exemple\"}], " + (passage ? "\"phrase_cle\": \"la phrase du texte qui donne la réponse, puis sa traduction\", " : "") + "\"pourquoi\": \"pourquoi la bonne réponse est correcte\", \"pieges\": \"pourquoi chaque autre option est fausse, une par une\", \"astuce\": \"une astuce de mémorisation courte\"}";
+  try {
+    const d = parseJSON(await aiText(prompt, "default", true));
+    if (!d || !Array.isArray(d.mots)) throw {message: "Réponse incomplète. Réessaie."};
+    DECOMP[id] = d; try { localStorage.setItem("mextprep.decomp", JSON.stringify(DECOMP)); } catch (e) {}
+  } catch (e) {
+    if (e && e.code === "not_granted") CAP.sample = null;
+    toast(e && e.message ? e.message : "Le décorticage n'a pas abouti. Réessaie.");
+    if (!DECOMP[id]) DECOMP[id] = localDecomp(X);
+  }
+  Q.dbusy = false; render();
 }
 function vResult() {
   const Q = QZ, R = Q.result; const pct = Math.round(R.score / R.max * 100);
@@ -1948,6 +2006,7 @@ document.addEventListener("click", async e => {
     else t = X.subj === "ja" ? plainJa(it.q).replace(/＿＿/, plainJa(it.o[it.a])) : it.q.replace(/\(＿＿\)|（＿＿）|＿＿/, it.o[it.a]);
     speak(t.slice(0, 1800), X.subj); }
   else if (a === "say") { speak(b.dataset.v, b.dataset.l); }
+  else if (a === "decomp") { if (v === "full") delete DECOMP[QZ.ids[QZ.i]]; decomp(); }
   else if (a === "mission-en" || a === "mission-ja") { const m = mission(); const ids = a === "mission-en" ? m.en : m.ja; const rest = ids.filter(id => m.done[id] === undefined); startQuiz(rest.length ? rest : ids, {title: "Mission du jour · " + (a === "mission-en" ? "anglais" : "japonais"), missionKey: a, back: "home"}); }
   else if (a === "mission-iv") { startIv([mission().iq], false); }
   else if (a === "review") { startQuiz(shuffle(dueIds()).slice(0, 15), {title: "Révision des erreurs", back: "home"}); }
