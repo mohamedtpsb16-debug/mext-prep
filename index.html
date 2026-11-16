@@ -1418,6 +1418,14 @@ function addSpeakers(html) {
     return "<" + tag + ">" + inner + ' <button class="say" data-act="say" data-l="ja" data-v="' + esc(jt) + '" aria-label="Écouter le japonais">' + ICON.spk + "</button></" + tag + ">";
   });
 }
+function readKeyFields() {
+  const looks = v => /^(gsk_|xai-)/.test(v);
+  let k = (document.getElementById("gk").value || "").trim().replace(/\s+/g, ""), m = (document.getElementById("gm").value || "").trim();
+  if (!looks(k) && looks(m.replace(/\s+/g, ""))) { k = m.replace(/\s+/g, ""); m = ""; }
+  if (looks(m)) m = "";
+  S.grokKey = k; S.grokModel = m; try { localStorage.setItem("mextprep.key", k); } catch (e) {}
+}
+try { const kk = localStorage.getItem("mextprep.key"); if (kk && !S.grokKey) S.grokKey = kk; } catch (e) {}
 let DECOMP = {}; try { DECOMP = JSON.parse(localStorage.getItem("mextprep.decomp") || "{}"); } catch (e) {}
 const TAGS = {};
 ORDER.forEach(id => { const t = ITEMS[id].it.t; if (t) (TAGS[t] = TAGS[t] || []).push(id); });
@@ -1964,7 +1972,7 @@ function vProfil() {
   '<button class="btn" data-act="save-profil">Enregistrer</button></div>' +
   '<div class="card"><b>Correction par IA (Groq ou Grok)</b><span class="small muted">' + (IN_CLAUDE ? "Dans Claude, c'est Claude qui corrige : pas besoin de clé ici. La clé sert à la version iPhone." : "Ta clé reste sur ce téléphone et n'est envoyée qu'au service choisi (Groq ou xAI).") + '</span>' +
   '<label class="f" for="gk">Clé API (Groq : gsk_… · Grok : xai-…)</label><input type="password" id="gk" autocomplete="off" value="' + esc(S.grokKey) + '" placeholder="gsk_…">' +
-  '<label class="f" for="gm">Modèle</label><input type="text" id="gm" value="' + esc(S.grokModel) + '">' +
+  '<label class="f" for="gm">Modèle</label><input type="text" id="gm" value="' + esc(S.grokModel) + '" placeholder="Laisse vide : choisi automatiquement">' +
   '<div class="btns"><button class="btn sm" data-act="grok-save">Enregistrer la clé</button><button class="btn sm alt" data-act="grok-test">Tester ma clé</button></div></div>' +
   '<div class="card"><b>Transférer ma progression</b><span class="small muted">Copie ton code ici, puis colle-le dans l\'autre version de l\'appli (Claude ou iPhone).</span><div class="btns"><button class="btn sm" data-act="exp">Copier mon code</button></div><label class="f" for="imp">Coller un code reçu</label><textarea id="imp" style="min-height:80px" placeholder="Code de progression"></textarea><button class="btn sm alt" data-act="imp">Importer ce code</button></div>' +
   '<div class="card"><b>Données</b><span class="small muted">' + S.xp + ' XP · ' + Object.keys(S.items).length + ' questions travaillées · ' + S.exams.length + ' examens blancs.</span><button class="btn alt sm" data-act="reset">Remettre la progression à zéro</button></div>' + nav("home");
@@ -2038,8 +2046,8 @@ document.addEventListener("click", async e => {
   else if (a === "qback") { const bv = QZ && QZ.backView; QZ = null; if (bv) go(bv.name, bv); else go("home"); }
   else if (a === "plan-eval") { evalPlan(); }
   else if (a === "save-profil") { S.name = document.getElementById("pn").value.trim() || "Mohamed"; S.field = document.getElementById("pf").value.trim(); S.topic = document.getElementById("pt").value.trim(); const d = document.getElementById("pd").value; if (/^\d{4}-\d{2}-\d{2}$/.test(d)) S.examDate = d; S.goal = +document.getElementById("pg").value; S.theme = document.getElementById("pth").value; S.sound = document.getElementById("ps").checked; if (S.mission) S.mission.date = ""; save(); toast("Réglages enregistrés."); render(); }
-  else if (a === "grok-save") { S.grokKey = document.getElementById("gk").value.trim(); S.grokModel = document.getElementById("gm").value.trim() || defModel(); save(); toast(S.grokKey ? "Clé enregistrée sur cet appareil." : "Clé effacée."); render(); }
-  else if (a === "grok-test") { S.grokKey = document.getElementById("gk").value.trim(); S.grokModel = document.getElementById("gm").value.trim() || S.grokModel; save(); if (!S.grokKey) { toast("Colle d'abord ta clé."); return; } toast("Test en cours…");
+  else if (a === "grok-save") { readKeyFields(); save(); toast(S.grokKey ? "Clé enregistrée sur cet appareil." : "Clé effacée."); render(); }
+  else if (a === "grok-test") { readKeyFields(); save(); if (!S.grokKey) { toast("Colle d'abord ta clé."); return; } toast("Test en cours…");
     try { const r = await fetch(AI_BASE() + "/models", {headers: {"Authorization": "Bearer " + S.grokKey}}); if (!r.ok) { toast(r.status === 401 || r.status === 403 ? "Clé refusée par " + AI_NAME() + "." : "Erreur " + AI_NAME() + " " + r.status + "."); return; }
       const all = ((await r.json()).data || []).filter(m => m.active !== false).map(m => m.id);
       const ok = all.filter(id => !/whisper|guard|tts|playai|image|imagine|vision|video|orpheus|compound/i.test(id));
@@ -2088,7 +2096,7 @@ function stopMic() {
 }
 (function init() {
   const m = location.hash.match(/^#k=((?:gsk_|xai-)[A-Za-z0-9_-]+)/);
-  if (m) { S.grokKey = m[1]; S.grokModel = ""; save(); try { history.replaceState(null, "", location.pathname); } catch (e) { location.hash = ""; } setTimeout(() => toast("Clé " + AI_NAME() + " enregistrée sur ce téléphone."), 400); }
+  if (m) { S.grokKey = m[1]; S.grokModel = ""; try { localStorage.setItem("mextprep.key", m[1]); } catch (e) {} save(); try { history.replaceState(null, "", location.pathname); } catch (e) { location.hash = ""; } setTimeout(() => toast("Clé " + AI_NAME() + " enregistrée sur ce téléphone."), 400); }
   const h = location.hash.slice(1); if (TABS.some(t => t[0] === h)) VIEW = {name: h}; render(); })();
 
 </script>
