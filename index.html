@@ -978,7 +978,7 @@ const addDays = (iso, n) => { const d = new Date(iso + "T12:00:00"); d.setDate(d
 const daysBetween = (a, b) => Math.round((new Date(b + "T12:00:00") - new Date(a + "T12:00:00")) / 864e5);
 function freshState() {
   return {v: 1, name: "Mohamed", examDate: "2027-07-06", topic: "", field: "Marketing & Communication", goal: 15, theme: "auto", sound: true, voice: "buttery",
-    items: {}, flash: {}, days: {}, xp: 0, exams: [], interview: {}, mission: null, check: {}, plan: "", grokKey: "", grokModel: "grok-4-fast-non-reasoning", updated: 0};
+    items: {}, flash: {}, days: {}, xp: 0, exams: [], interview: {}, mission: null, check: {}, plan: "", grokKey: "", grokModel: "", updated: 0};
 }
 let S = freshState();
 try { const raw = localStorage.getItem(KEY); if (raw) S = Object.assign(freshState(), JSON.parse(raw)); } catch (e) {}
@@ -1004,16 +1004,22 @@ const SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
 const IN_CLAUDE = !!(window.claude && window.claude.use);
 const hasAI = () => !!(CAP.sample || S.grokKey);
 const hasMic = () => !!(CAP.dictation || SR);
+const isGroq = () => /^gsk_/.test(S.grokKey || "");
+const AI_BASE = () => isGroq() ? "https://api.groq.com/openai/v1" : "https://api.x.ai/v1";
+const AI_NAME = () => isGroq() ? "Groq" : "Grok";
+const defModel = () => isGroq() ? "openai/gpt-oss-120b" : "grok-4-fast-non-reasoning";
 async function grokCall(prompt, json) {
   let r;
+  if (isGroq() && /^grok/.test(S.grokModel || "")) S.grokModel = defModel();
+  if (!isGroq() && !/^grok/.test(S.grokModel || "")) S.grokModel = defModel();
   try {
-    r = await fetch("https://api.x.ai/v1/chat/completions", {method: "POST", headers: {"Content-Type": "application/json", "Authorization": "Bearer " + S.grokKey},
-      body: JSON.stringify({model: S.grokModel || "grok-4-fast-non-reasoning", temperature: 0.3, messages: [{role: "system", content: json ? "Tu réponds uniquement avec un objet JSON valide." : "Tu réponds en HTML simple."}, {role: "user", content: prompt}]})});
-  } catch (e) { throw {code: "network", message: "Connexion à Grok impossible. Vérifie ta connexion internet."}; }
-  if (r.status === 401 || r.status === 403) throw {code: "key", message: "Clé Grok refusée. Vérifie-la dans le Profil."};
-  if (r.status === 404 || r.status === 400) { let m = ""; try { m = (await r.json()).error || ""; } catch (e) {} throw {code: "model", message: "Modèle Grok introuvable. Touche « Tester ma clé » dans le Profil." + (m ? " (" + String(m.message || m).slice(0, 80) + ")" : "")}; }
-  if (r.status === 429) throw {code: "rate_limited", message: "Limite Grok atteinte. Réessaie dans une minute."};
-  if (!r.ok) throw {code: "http", message: "Grok a répondu avec une erreur " + r.status + "."};
+    r = await fetch(AI_BASE() + "/chat/completions", {method: "POST", headers: {"Content-Type": "application/json", "Authorization": "Bearer " + S.grokKey},
+      body: JSON.stringify({model: S.grokModel || defModel(), temperature: 0.3, messages: [{role: "system", content: json ? "Tu réponds uniquement avec un objet JSON valide." : "Tu réponds en HTML simple."}, {role: "user", content: prompt}]})});
+  } catch (e) { throw {code: "network", message: "Connexion à " + AI_NAME() + " impossible. Vérifie ta connexion internet."}; }
+  if (r.status === 401 || r.status === 403) throw {code: "key", message: "Clé " + AI_NAME() + " refusée. Vérifie-la dans le Profil."};
+  if (r.status === 404 || r.status === 400) { let m = ""; try { m = (await r.json()).error || ""; } catch (e) {} throw {code: "model", message: "Modèle " + AI_NAME() + " introuvable. Touche « Tester ma clé » dans le Profil." + (m ? " (" + String(m.message || m).slice(0, 80) + ")" : "")}; }
+  if (r.status === 429) throw {code: "rate_limited", message: "Limite " + AI_NAME() + " atteinte. Réessaie dans une minute."};
+  if (!r.ok) throw {code: "http", message: AI_NAME() + " a répondu avec une erreur " + r.status + "."};
   const d = await r.json(); return (d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content) || "";
 }
 async function aiText(prompt, tier, json) {
@@ -1333,7 +1339,7 @@ function vEntretien() {
   return '<div class="top"><h1 style="font-size:26px">Entretien</h1>' + (avg ? '<span class="pill">Moyenne ' + avg + '/10</span>' : "") + '</div>' +
   '<button class="row" data-act="simu" style="background:var(--hero);color:var(--hero-ink);border:none"><span class="ic" style="background:var(--sakura);color:#fff">審</span><span class="tx"><b>Simulation complète</b><span style="color:var(--hero-muted)">5 questions du jury, lues à voix haute, analyse finale</span></span>' + ICON.chev + '</button>' +
   '<button class="row" data-act="plan"><span class="ic int">計</span><span class="tx"><b>Coach du plan de recherche</b><span>Colle ton plan, reçois une critique comme un jury</span></span>' + ICON.chev + '</button>' +
-  (hasAI() ? "" : '<p class="tip">' + (IN_CLAUDE ? "L'analyse par Claude s'active quand tu l'autorises à la première demande." : "Ajoute ta clé Grok dans le Profil pour faire analyser tes réponses. Sans clé, tu as les conseils et une grille d'auto-évaluation.") + '</p>') +
+  (hasAI() ? "" : '<p class="tip">' + (IN_CLAUDE ? "L'analyse par Claude s'active quand tu l'autorises à la première demande." : "Ajoute ta clé Groq (ou Grok) dans le Profil pour faire analyser tes réponses. Sans clé, tu as les conseils et une grille d'auto-évaluation.") + '</p>') +
   cats.map(c => '<div class="sec-h"><h2>' + esc(c) + '</h2></div><div class="list">' + INTERVIEW.map((q, i) => ({q, i})).filter(x => x.q.c === c).map(x => { const r = S.interview[x.i]; return '<button class="row" data-act="iq" data-v="' + x.i + '"><span class="ic int">' + (r && typeof r.score === "number" ? r.score : "問") + '</span><span class="tx"><b lang="' + (c === "Japonais" ? "ja" : "en") + '">' + esc(x.q.q) + '</b><span>' + (r ? "Dernière réponse le " + fmtDate(r.date) : "Pas encore répondu") + '</span></span>' + ICON.chev + '</button>'; }).join("") + '</div>').join("") + nav("entretien");
 }
 let IV = null; // session d'entretien
@@ -1346,7 +1352,7 @@ function vIv() {
   h += '<label class="f" for="ans">Ta réponse ' + (ja ? "(en japonais)" : "(en anglais)") + '</label><textarea id="ans" placeholder="' + (hasMic() ? "Touche le micro et parle, ou écris ici." : "Écris ici, ou utilise la dictée du clavier (touche micro du clavier).") + '">' + esc(IV.text || (prev && !IV.simu ? prev.a : "") || "") + '</textarea>';
   h += '<div style="display:flex;align-items:center;gap:16px;justify-content:center">' + (hasMic() ? '<button class="mic' + (IV.rec ? " on" : "") + '" data-act="mic" aria-label="' + (IV.rec ? "Arrêter la dictée" : "Répondre à voix haute") + '">' + ICON.mic + '</button>' : "") + '<span class="small muted" id="wc">' + wc(IV.text || (prev && !IV.simu ? prev.a : "")) + '</span></div>';
   if (res) h += ivResult(res, ja);
-  else h += '<button class="btn sak" data-act="iv-eval"' + (IV.busy ? " disabled" : "") + '>' + (IV.busy ? "Analyse en cours…" : (CAP.sample ? "Analyser ma réponse avec Claude" : S.grokKey ? "Analyser ma réponse avec Grok" : "M'auto-évaluer")) + '</button>';
+  else h += '<button class="btn sak" data-act="iv-eval"' + (IV.busy ? " disabled" : "") + '>' + (IV.busy ? "Analyse en cours…" : (CAP.sample ? "Analyser ma réponse avec Claude" : S.grokKey ? "Analyser ma réponse avec " + AI_NAME() : "M'auto-évaluer")) + '</button>';
   if (res || IV.simu) h += '<div class="btns">' + (IV.i < IV.list.length - 1 ? '<button class="btn" data-act="iv-next"' + (res ? "" : " disabled") + '>Question suivante</button>' : '<button class="btn" data-act="iv-end"' + (res ? "" : " disabled") + '>' + (IV.simu ? "Voir le bilan" : "Terminer") + '</button>') + '</div>';
   return h;
 }
@@ -1394,7 +1400,7 @@ function vPlan() {
   '<label class="f" for="topic">Sujet de recherche en une phrase</label><input type="text" id="topic" value="' + esc(S.topic) + '" placeholder="Ex. : marketing digital et confiance des consommateurs dans les PME burkinabè">' +
   '<label class="f" for="plan">Ton plan de recherche</label><textarea id="plan" style="min-height:240px" placeholder="Colle ici ton texte complet.">' + esc(S.plan || "") + '</textarea>' +
   (VIEW.res ? '<article class="card lesson">' + VIEW.res + '</article>' : "") +
-  '<button class="btn sak" data-act="plan-eval"' + (VIEW.busy || !hasAI() ? " disabled" : "") + '>' + (VIEW.busy ? "Lecture du jury en cours…" : "Recevoir la critique du jury") + '</button>' + (hasAI() ? "" : '<p class="tip">' + (IN_CLAUDE ? "Disponible après ton accord à la première demande." : "Ajoute ta clé Grok dans le Profil pour activer la critique.") + '</p>') + nav("entretien");
+  '<button class="btn sak" data-act="plan-eval"' + (VIEW.busy || !hasAI() ? " disabled" : "") + '>' + (VIEW.busy ? "Lecture du jury en cours…" : "Recevoir la critique du jury") + '</button>' + (hasAI() ? "" : '<p class="tip">' + (IN_CLAUDE ? "Disponible après ton accord à la première demande." : "Ajoute ta clé Groq (ou Grok) dans le Profil pour activer la critique.") + '</p>') + nav("entretien");
 }
 async function evalPlan() {
   S.plan = document.getElementById("plan").value; S.topic = document.getElementById("topic").value; save();
@@ -1429,8 +1435,8 @@ function vProfil() {
   '<label class="f" for="pth">Thème</label><select id="pth">' + [["auto", "Automatique"], ["light", "Clair (washi)"], ["dark", "Nuit (indigo)"]].map(o => '<option value="' + o[0] + '"' + (S.theme === o[0] ? " selected" : "") + '>' + o[1] + '</option>').join("") + '</select>' +
   '<label class="check"><input type="checkbox" id="ps"' + (S.sound ? " checked" : "") + '>Effets sonores (bonne / mauvaise réponse)</label>' +
   '<button class="btn" data-act="save-profil">Enregistrer</button></div>' +
-  '<div class="card"><b>Correction par IA (Grok)</b><span class="small muted">' + (IN_CLAUDE ? "Dans Claude, c'est Claude qui corrige : pas besoin de clé ici. La clé sert à la version iPhone." : "Ta clé reste sur ce téléphone et n'est envoyée qu'à xAI.") + '</span>' +
-  '<label class="f" for="gk">Clé API xAI</label><input type="password" id="gk" autocomplete="off" value="' + esc(S.grokKey) + '" placeholder="xai-…">' +
+  '<div class="card"><b>Correction par IA (Groq ou Grok)</b><span class="small muted">' + (IN_CLAUDE ? "Dans Claude, c'est Claude qui corrige : pas besoin de clé ici. La clé sert à la version iPhone." : "Ta clé reste sur ce téléphone et n'est envoyée qu'au service choisi (Groq ou xAI).") + '</span>' +
+  '<label class="f" for="gk">Clé API (Groq : gsk_… · Grok : xai-…)</label><input type="password" id="gk" autocomplete="off" value="' + esc(S.grokKey) + '" placeholder="gsk_…">' +
   '<label class="f" for="gm">Modèle</label><input type="text" id="gm" value="' + esc(S.grokModel) + '">' +
   '<div class="btns"><button class="btn sm" data-act="grok-save">Enregistrer la clé</button><button class="btn sm alt" data-act="grok-test">Tester ma clé</button></div></div>' +
   '<div class="card"><b>Transférer ma progression</b><span class="small muted">Copie ton code ici, puis colle-le dans l\'autre version de l\'appli (Claude ou iPhone).</span><div class="btns"><button class="btn sm" data-act="exp">Copier mon code</button></div><label class="f" for="imp">Coller un code reçu</label><textarea id="imp" style="min-height:80px" placeholder="Code de progression"></textarea><button class="btn sm alt" data-act="imp">Importer ce code</button></div>' +
@@ -1499,13 +1505,14 @@ document.addEventListener("click", async e => {
   else if (a === "plan") { go("plan"); }
   else if (a === "plan-eval") { evalPlan(); }
   else if (a === "save-profil") { S.name = document.getElementById("pn").value.trim() || "Mohamed"; S.field = document.getElementById("pf").value.trim(); S.topic = document.getElementById("pt").value.trim(); const d = document.getElementById("pd").value; if (/^\d{4}-\d{2}-\d{2}$/.test(d)) S.examDate = d; S.goal = +document.getElementById("pg").value; S.theme = document.getElementById("pth").value; S.sound = document.getElementById("ps").checked; if (S.mission) S.mission.date = ""; save(); toast("Réglages enregistrés."); render(); }
-  else if (a === "grok-save") { S.grokKey = document.getElementById("gk").value.trim(); S.grokModel = document.getElementById("gm").value.trim() || "grok-4-fast-non-reasoning"; save(); toast(S.grokKey ? "Clé enregistrée sur cet appareil." : "Clé effacée."); render(); }
+  else if (a === "grok-save") { S.grokKey = document.getElementById("gk").value.trim(); S.grokModel = document.getElementById("gm").value.trim() || defModel(); save(); toast(S.grokKey ? "Clé enregistrée sur cet appareil." : "Clé effacée."); render(); }
   else if (a === "grok-test") { S.grokKey = document.getElementById("gk").value.trim(); S.grokModel = document.getElementById("gm").value.trim() || S.grokModel; save(); if (!S.grokKey) { toast("Colle d'abord ta clé."); return; } toast("Test en cours…");
-    try { const r = await fetch("https://api.x.ai/v1/models", {headers: {"Authorization": "Bearer " + S.grokKey}}); if (!r.ok) { toast(r.status === 401 || r.status === 403 ? "Clé refusée par xAI." : "Erreur xAI " + r.status + "."); return; }
-      const ids = ((await r.json()).data || []).map(m => m.id).filter(id => /^grok/.test(id) && !/image|imagine|vision|video/.test(id));
-      if (!ids.includes(S.grokModel)) { const pick = ids.find(i => /fast.*non-reasoning/.test(i)) || ids.find(i => /fast|mini/.test(i)) || ids[0]; if (pick) { S.grokModel = pick; save(); } }
-      toast("Clé valide. Modèle utilisé : " + S.grokModel); render(); }
-    catch (e) { toast("Impossible de joindre xAI depuis cette page."); } }
+    try { const r = await fetch(AI_BASE() + "/models", {headers: {"Authorization": "Bearer " + S.grokKey}}); if (!r.ok) { toast(r.status === 401 || r.status === 403 ? "Clé refusée par " + AI_NAME() + "." : "Erreur " + AI_NAME() + " " + r.status + "."); return; }
+      const all = ((await r.json()).data || []).filter(m => m.active !== false).map(m => m.id);
+      const ok = all.filter(id => !/whisper|guard|tts|playai|image|imagine|vision|video|orpheus|compound/i.test(id));
+      if (!ok.includes(S.grokModel)) { const pref = isGroq() ? [/gpt-oss-120b/, /llama-3\.3-70b/, /llama-4-maverick/, /qwen/, /70b/] : [/fast.*non-reasoning/, /fast|mini/]; let pick = null; for (const re of pref) { pick = ok.find(i => re.test(i)); if (pick) break; } pick = pick || ok[0]; if (pick) { S.grokModel = pick; save(); } }
+      toast("Clé " + AI_NAME() + " valide. Modèle : " + S.grokModel); render(); }
+    catch (e) { toast("Impossible de joindre " + AI_NAME() + " depuis cette page."); } }
   else if (a === "exp") { const c = JSON.parse(JSON.stringify(S)); delete c.grokKey; const code = btoa(unescape(encodeURIComponent(JSON.stringify(c))));
     try { await navigator.clipboard.writeText(code); toast("Code copié. Colle-le dans l'autre version."); } catch (e) { const t = document.getElementById("imp"); if (t) { t.value = code; t.select(); } toast("Copie automatique impossible : le code est dans la case, copie-le à la main."); } }
   else if (a === "imp") { const t = document.getElementById("imp").value.trim(); try { const o = JSON.parse(decodeURIComponent(escape(atob(t)))); if (!o || typeof o.items !== "object") throw 0; const k = S.grokKey; S = Object.assign(freshState(), o); S.grokKey = k; save(); toast("Progression importée."); go("home"); } catch (e) { toast("Code invalide. Recopie-le en entier."); } }
