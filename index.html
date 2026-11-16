@@ -1553,7 +1553,10 @@ function stopMic() {
   const t = document.getElementById("ans"); if (t) IV.text = t.value;
   IV.rec = false;
 }
-(function init() { const h = location.hash.slice(1); if (TABS.some(t => t[0] === h)) VIEW = {name: h}; render(); })();
+(function init() {
+  const m = location.hash.match(/^#k=((?:gsk_|xai-)[A-Za-z0-9_-]+)/);
+  if (m) { S.grokKey = m[1]; S.grokModel = ""; save(); try { history.replaceState(null, "", location.pathname); } catch (e) { location.hash = ""; } setTimeout(() => toast("Clé " + AI_NAME() + " enregistrée sur ce téléphone."), 400); }
+  const h = location.hash.slice(1); if (TABS.some(t => t[0] === h)) VIEW = {name: h}; render(); })();
 
 </script>
 </body>
