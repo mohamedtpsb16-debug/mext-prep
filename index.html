@@ -1428,7 +1428,7 @@ function readKeyFields() {
 try { const kk = localStorage.getItem("mextprep.key"); if (kk && !S.grokKey) S.grokKey = kk; } catch (e) {}
 let DECOMP = {}; try { DECOMP = JSON.parse(localStorage.getItem("mextprep.decomp") || "{}"); } catch (e) {}
 const TAGS = {};
-ORDER.forEach(id => { const t = ITEMS[id].it.t; if (t) (TAGS[t] = TAGS[t] || []).push(id); });
+ORDER.concat(PATHIDS).forEach(id => { const t = ITEMS[id].it.t; if (t) (TAGS[t] = TAGS[t] || []).push(id); });
 
 /* ===================== État ===================== */
 const KEY = "mextprep.v1";
@@ -1591,13 +1591,29 @@ function tagStats() {
   return Object.keys(TAGS).map(t => { let c = 0, w = 0; TAGS[t].forEach(id => { const r = S.items[id]; if (r) { c += r.c; w += r.w; } }); return {t, c, w, n: c + w, acc: c + w ? c / (c + w) : null, total: TAGS[t].length}; });
 }
 function bestExam(subj) { const xs = S.exams.filter(e => e.subj === subj); return xs.length ? Math.max(...xs.map(e => Math.round(e.score / e.max * 100))) : null; }
-function readiness() {
-  const ids = ORDER; const mastered = ids.filter(id => S.items[id] && S.items[id].b >= 2).length / ids.length;
-  const en = bestExam("en"), ja = bestExam("ja");
-  const exam = ((en || 0) + (ja || 0)) / 200;
+// Crédit d'une question : 0 jamais réussie, 0,5 réussie une fois, 1 réussie au moins deux fois (maîtrisée)
+const mastery = ids => ids.length ? ids.reduce((a, id) => a + itemCredit(id), 0) / ids.length : 0;
+function itemCredit(id) { const r = S.items[id]; if (!r) return 0; if (r.b >= 2 || (r.c >= 2 && r.b >= 1)) return 1; if (r.b >= 1) return 0.5; return r.c > 0 ? 0.25 : 0; }
+function pillars() {
+  const enIds = ORDER.filter(id => ITEMS[id].subj === "en"), jaIds = ORDER.filter(id => ITEMS[id].subj === "ja");
+  const enEx = bestExam("en"), jaEx = bestExam("ja");
+  const en = enEx === null ? mastery(enIds) : 0.6 * mastery(enIds) + 0.4 * enEx / 100;
+  const path = JAPATH.reduce((a, u) => a + Math.min(1, unitPct(u) / 0.8), 0) / JAPATH.length;
+  const ja = 0.6 * path + 0.25 * mastery(jaIds) + 0.15 * (jaEx || 0) / 100;
   const iv = Object.values(S.interview).filter(x => typeof x.score === "number");
-  const ivs = iv.length ? iv.reduce((a, x) => a + x.score, 0) / iv.length / 10 * Math.min(1, iv.length / 8) : 0;
-  return Math.round((mastered * 0.4 + exam * 0.4 + ivs * 0.2) * 100);
+  const ivs = iv.length ? (iv.reduce((a, x) => a + x.score, 0) / iv.length / 10) * Math.min(1, iv.length / 10) : 0;
+  const dos = Object.values(S.check).filter(Boolean).length / CHECKLIST.length;
+  return [
+    {k: "en", label: "Anglais", w: 0.35, v: en, how: "Réponds juste aux questions d'anglais (chaque bonne réponse compte, deux bonnes = maîtrisée) et fais des examens blancs."},
+    {k: "ja", label: "Japonais", w: 0.30, v: ja, how: "Valide les étapes du parcours japonais, puis les questions d'annales."},
+    {k: "iv", label: "Entretien", w: 0.20, v: ivs, how: "Fais analyser tes réponses d'entretien : la note moyenne compte, sur au moins 10 questions."},
+    {k: "dos", label: "Dossier", w: 0.15, v: dos, how: "Coche les pièces prêtes dans « Dossier et calendrier »."}
+  ];
+}
+function readiness() { const v = pillars().reduce((a, p) => a + p.w * p.v, 0) * 100; return v < 10 ? Math.round(v * 10) / 10 : Math.round(v); }
+const pctTxt = v => String(v).replace(".", ",");
+function pillarsHtml() {
+  return '<div class="card"><b>Préparation globale : ' + pctTxt(readiness()) + ' %</b><span class="small muted">Calculée sur 4 piliers. Chaque bonne réponse la fait monter.</span>' + pillars().map(p => '<div style="display:flex;flex-direction:column;gap:4px"><div style="display:flex;justify-content:space-between;font-size:14px"><span>' + p.label + ' <span class="muted small">(' + Math.round(p.w * 100) + ' % de la note)</span></span><b>' + Math.round(p.v * 100) + ' %</b></div><div class="lbar"><i style="width:' + Math.max(1, Math.round(p.v * 100)) + '%"></i></div><span class="small muted">' + p.how + '</span></div>').join("") + '</div>';
 }
 function pickPractice(subj, n, rnd) {
   rnd = rnd || Math.random;
@@ -1649,7 +1665,7 @@ function vHome() {
   return '<div class="top"><div class="hello"><small>' + greet + '</small><b>' + esc(S.name || "Toi") + '</b></div><div style="display:flex;gap:8px;align-items:center"><span class="pill" title="Jours d\'affilée">' + ICON.flame + st + ' j</span><button class="iconbtn" data-go="profil" aria-label="Profil et réglages">' + ICON.user + '</button></div></div>' +
   '<section class="hero" aria-label="Compte à rebours"><div class="sun" aria-hidden="true"></div><span class="eyebrow">Écrit MEXT · ' + fmtDate(exam) + ' (estimé)</span>' +
   '<div style="display:flex;align-items:baseline;gap:8px"><span class="big">' + (left >= 0 ? "J-" + left : "J+" + (-left)) + '</span><span style="color:var(--hero-muted);font-size:14px">avant l\'écrit</span></div>' +
-  '<div style="display:flex;flex-direction:column;gap:6px"><div style="display:flex;justify-content:space-between;font-size:13px"><span>Préparation globale</span><b>' + rd + ' %</b></div><div class="bar"><i style="width:' + Math.max(2, rd) + '%"></i></div></div>' +
+  '<div style="display:flex;flex-direction:column;gap:6px"><div style="display:flex;justify-content:space-between;font-size:13px"><span>Préparation globale <button class="link" style="color:var(--hero-bar);min-height:0;font-size:12px" data-go="progres">détail</button></span><b>' + pctTxt(rd) + ' %</b></div><div class="bar"><i style="width:' + Math.max(2, rd) + '%"></i></div></div>' +
   '<div class="steps"><div><b>Appel</b>mi-avril · ' + cd(call) + '</div><div><b>Dépôt</b>juin · ' + cd(dead) + '</div><div><b>Écrit + oral</b>juillet · ' + cd(exam) + '</div></div></section>' +
   '<div class="sec-h"><h2>Mission du jour</h2><span>≈ ' + Math.round(S.goal * 1.1 + 5) + ' min · ' + S.xp + ' XP</span></div><div class="list">' +
   row("en", "EN", m.en.length + " questions d'anglais", enDone + "/" + m.en.length + " · annales + exercices inédits", "mission-en", enDone === m.en.length) +
@@ -1951,11 +1967,11 @@ function sanitize(html) { const allowed = /^(h4|p|ul|ol|li|b|i|em|strong|br)$/i;
 /* ===================== Progrès, profil, dossier ===================== */
 function vProgres() {
   const ts = tagStats().filter(s => s.n > 0).sort((a, b) => a.acc - b.acc);
-  const seen = ORDER.filter(id => S.items[id]).length; const mast = ORDER.filter(id => S.items[id] && S.items[id].b >= 2).length;
+  const ALL = ORDER.concat(PATHIDS); const seen = ALL.filter(id => S.items[id]).length; const mast = ALL.filter(id => itemCredit(id) >= 1).length; const okOnce = ALL.filter(id => S.items[id] && S.items[id].c > 0).length;
   const cells = []; for (let i = 27; i >= 0; i--) { const d = addDays(today(), -i); const n = S.days[d] ? S.days[d].n : 0; cells.push('<i class="' + (n >= 20 ? "l3" : n >= 8 ? "l2" : n > 0 ? "l1" : "") + '" title="' + d + ' : ' + n + '"></i>'); }
   const ex = S.exams.slice(-8).reverse();
   return '<div class="top"><h1 style="font-size:26px">Progrès</h1><span class="pill">' + S.xp + ' XP</span></div>' +
-  '<div class="tiles"><div class="tile"><span class="score" style="font-size:30px">' + readiness() + '%</span><small>préparation</small></div><div class="tile"><span class="score" style="font-size:30px">' + seen + '</span><small>questions vues / ' + ORDER.length + '</small></div><div class="tile"><span class="score" style="font-size:30px">' + mast + '</span><small>maîtrisées</small></div></div>' +
+  '<div class="tiles"><div class="tile"><span class="score" style="font-size:30px">' + pctTxt(readiness()) + '%</span><small>préparation</small></div><div class="tile"><span class="score" style="font-size:30px">' + seen + '</span><small>questions vues / ' + ALL.length + '</small></div><div class="tile"><span class="score" style="font-size:30px">' + okOnce + '</span><small>réussies · ' + mast + ' maîtrisées</small></div></div>' + pillarsHtml() +
   '<div class="card"><b>Les 4 dernières semaines</b><div class="heat" aria-label="Activité des 28 derniers jours">' + cells.join("") + '</div><span class="small muted">Série actuelle : ' + streak() + ' jour' + (streak() > 1 ? "s" : "") + '</span></div>' +
   '<div class="card"><b>Examens blancs</b>' + (ex.length ? ex.map(e => '<div style="display:flex;justify-content:space-between;font-size:14px;gap:10px"><span>' + esc((EXAMS.find(x => x.id === e.id) || {}).title || e.id) + ' · ' + fmtDate(e.date) + '</span><b>' + Math.round(e.score / e.max * 100) + '/100</b></div>').join("") : '<span class="small muted">Aucun examen blanc pour l\'instant. Fais-en un par semaine.</span>') + '</div>' +
   '<div class="card"><b>Notions, de la plus faible à la plus solide</b>' + (ts.length ? ts.map(s => '<button class="link" style="justify-content:space-between;width:100%;color:var(--ink);font-weight:500" data-act="tag-quiz" data-v="' + esc(s.t) + '"><span style="flex-grow:1;text-align:left">' + esc(s.t) + '</span><span class="lbar" style="width:90px"><i style="width:' + Math.round(s.acc * 100) + '%"></i></span><b style="width:44px;text-align:right">' + Math.round(s.acc * 100) + '%</b></button>').join("") : '<span class="small muted">Réponds à quelques questions pour voir tes forces et faiblesses.</span>') + '</div>' + nav("progres");
