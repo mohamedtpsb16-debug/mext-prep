@@ -1448,7 +1448,58 @@ function save() {
   try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
   dirtyRemote = true;
   clearTimeout(saveTimer); saveTimer = setTimeout(pushRemote, 1500);
+  clearTimeout(syncTimer); syncTimer = setTimeout(syncNow, 2500);
 }
+/* ===================== Synchronisation en ligne (Supabase) ===================== */
+const SB_URL = "https://zmktcetxtwkaguxmnjdt.supabase.co";
+const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpta3RjZXR4dHdrYWd1eG1uamR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM1NjI0NTgsImV4cCI6MjEwOTEzODQ1OH0.tWcnSk6MLbVq2yxjJ8TtD409D-hIgCGuFMw33PFmdq0";
+let syncTimer = null, syncBusy = false, syncAgain = false;
+const SYNC = {state: "off", last: null, err: ""};
+const cleanCode = c => String(c || "").replace(/[^A-Za-z0-9]/g, "").toLowerCase();
+function syncCode() { try { return localStorage.getItem("mextprep.sync") || ""; } catch (e) { return ""; } }
+function setSyncCode(c) { try { localStorage.setItem("mextprep.sync", c); } catch (e) {} }
+function newCode() { const a = new Uint8Array(18); (window.crypto || window.msCrypto).getRandomValues(a); return Array.from(a, b => b.toString(16).padStart(2, "0")).join(""); }
+const fmtCode = c => c.match(/.{1,6}/g).join("-");
+async function sbRpc(fn, body) {
+  const r = await fetch(SB_URL + "/rest/v1/rpc/" + fn, {method: "POST", headers: {"Content-Type": "application/json", "apikey": SB_KEY, "Authorization": "Bearer " + SB_KEY}, body: JSON.stringify(body)});
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  const t = await r.text(); return t ? JSON.parse(t) : null;
+}
+function mergeState(L, R) {
+  if (!R || typeof R !== "object") return L;
+  const newer = (R.updated || 0) > (L.updated || 0) ? R : L, older = newer === R ? L : R;
+  const out = Object.assign(freshState(), older, newer);
+  const pickRec = (a, b, f) => !a ? b : !b ? a : f(a, b);
+  out.items = {}; new Set(Object.keys(L.items || {}).concat(Object.keys(R.items || {}))).forEach(id => {
+    out.items[id] = pickRec((L.items || {})[id], (R.items || {})[id], (a, b) => ((a.c + a.w) > (b.c + b.w) || ((a.c + a.w) === (b.c + b.w) && (a.l || "") >= (b.l || ""))) ? a : b); });
+  out.flash = {}; new Set(Object.keys(L.flash || {}).concat(Object.keys(R.flash || {}))).forEach(k => { out.flash[k] = pickRec((L.flash || {})[k], (R.flash || {})[k], (a, b) => (a.d || "") >= (b.d || "") ? a : b); });
+  out.days = {}; new Set(Object.keys(L.days || {}).concat(Object.keys(R.days || {}))).forEach(d => { const a = (L.days || {})[d] || {n: 0, xp: 0}, b = (R.days || {})[d] || {n: 0, xp: 0}; out.days[d] = {n: Math.max(a.n, b.n), xp: Math.max(a.xp, b.xp)}; });
+  out.xp = Math.max(L.xp || 0, R.xp || 0);
+  const ex = {}; (L.exams || []).concat(R.exams || []).forEach(e => { ex[e.id + "|" + e.date + "|" + e.score + "|" + e.dur] = e; }); out.exams = Object.values(ex).sort((a, b) => a.date < b.date ? -1 : 1);
+  out.interview = {}; new Set(Object.keys(L.interview || {}).concat(Object.keys(R.interview || {}))).forEach(k => { out.interview[k] = pickRec((L.interview || {})[k], (R.interview || {})[k], (a, b) => (a.date || "") >= (b.date || "") ? a : b); });
+  out.check = Object.assign({}, R.check || {}, L.check || {}); Object.keys(R.check || {}).forEach(k => { if (R.check[k]) out.check[k] = true; });
+  out.grokKey = L.grokKey || R.grokKey || ""; out.grokModel = newer.grokModel || "";
+  out.updated = Math.max(L.updated || 0, R.updated || 0);
+  return out;
+}
+async function syncNow() {
+  const code = syncCode(); if (!code || IN_CLAUDE) return;
+  if (syncBusy) { syncAgain = true; return; }
+  syncBusy = true; SYNC.state = "busy";
+  try {
+    const res = await sbRpc("mext_get", {p_code: code});
+    const before = JSON.stringify(S);
+    if (res && res.data) S = mergeState(S, res.data);
+    if (!S.updated) S.updated = Date.now();
+    try { localStorage.setItem(KEY, JSON.stringify(S)); if (S.grokKey) localStorage.setItem("mextprep.key", S.grokKey); } catch (e) {}
+    await sbRpc("mext_put", {p_code: code, p_data: S, p_updated: S.updated});
+    SYNC.state = "ok"; SYNC.last = new Date(); SYNC.err = "";
+    if (JSON.stringify(S) !== before && VIEW.name !== "quiz" && VIEW.name !== "iv") render();
+  } catch (e) { SYNC.state = "err"; SYNC.err = String(e && e.message || e); }
+  syncBusy = false;
+  if (syncAgain) { syncAgain = false; setTimeout(syncNow, 500); }
+}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") syncNow(); });
 async function pushRemote() {
   if (!DOC || saving || !dirtyRemote) return;
   saving = true; dirtyRemote = false;
@@ -1990,6 +2041,12 @@ function vProfil() {
   '<label class="f" for="gk">Clé API (Groq : gsk_… · Grok : xai-…)</label><input type="password" id="gk" autocomplete="off" value="' + esc(S.grokKey) + '" placeholder="gsk_…">' +
   '<label class="f" for="gm">Modèle</label><input type="text" id="gm" value="' + esc(S.grokModel) + '" placeholder="Laisse vide : choisi automatiquement">' +
   '<div class="btns"><button class="btn sm" data-act="grok-save">Enregistrer la clé</button><button class="btn sm alt" data-act="grok-test">Tester ma clé</button></div></div>' +
+  (IN_CLAUDE ? "" : '<div class="card"><b>Synchronisation automatique</b><span class="small muted">Ta progression est sauvegardée en ligne et partagée entre tous les appareils reliés avec le même code (icône, Safari, ordinateur).</span>' +
+    '<span class="small">' + (SYNC.state === "ok" ? "Synchronisé à " + SYNC.last.toLocaleTimeString("fr-FR", {hour: "2-digit", minute: "2-digit"}) : SYNC.state === "err" ? "Pas de connexion pour l\'instant : réessai automatique." : SYNC.state === "busy" ? "Synchronisation…" : "En attente…") + '</span>' +
+    '<label class="f" for="scode">Code de cet appareil</label><input type="text" id="scode" readonly value="' + esc(fmtCode(syncCode() || "------")) + '">' +
+    '<button class="btn sm" data-act="sync-copy">Copier le code</button>' +
+    '<label class="f" for="sjoin">Relier cet appareil à un autre</label><input type="text" id="sjoin" placeholder="Colle ici le code de ton autre appareil" autocomplete="off">' +
+    '<button class="btn sm alt" data-act="sync-join">Relier et fusionner</button></div>') +
   '<div class="card"><b>Transférer ma progression</b><span class="small muted">Copie ton code ici, puis colle-le dans l\'autre version de l\'appli (Claude ou iPhone).</span><div class="btns"><button class="btn sm" data-act="exp">Copier mon code</button></div><label class="f" for="imp">Coller un code reçu</label><textarea id="imp" style="min-height:80px" placeholder="Code de progression"></textarea><button class="btn sm alt" data-act="imp">Importer ce code</button></div>' +
   '<div class="card"><b>Données</b><span class="small muted">' + S.xp + ' XP · ' + Object.keys(S.items).length + ' questions travaillées · ' + S.exams.length + ' examens blancs.</span><button class="btn alt sm" data-act="reset">Remettre la progression à zéro</button></div>' + nav("home");
 }
@@ -2070,6 +2127,8 @@ document.addEventListener("click", async e => {
       if (!ok.includes(S.grokModel)) { const pref = isGroq() ? [/gpt-oss-120b/, /llama-3\.3-70b/, /llama-4-maverick/, /qwen/, /70b/] : [/fast.*non-reasoning/, /fast|mini/]; let pick = null; for (const re of pref) { pick = ok.find(i => re.test(i)); if (pick) break; } pick = pick || ok[0]; if (pick) { S.grokModel = pick; save(); } }
       toast("Clé " + AI_NAME() + " valide. Modèle : " + S.grokModel); render(); }
     catch (e) { toast("Impossible de joindre " + AI_NAME() + " depuis cette page."); } }
+  else if (a === "sync-copy") { const c = fmtCode(syncCode()); try { await navigator.clipboard.writeText(c); toast("Code copié."); } catch (e) { const t = document.getElementById("scode"); if (t) { t.select(); } toast("Sélectionne le code et copie-le."); } }
+  else if (a === "sync-join") { const c = cleanCode(document.getElementById("sjoin").value); if (c.length < 24) { toast("Code incomplet. Colle le code en entier."); return; } setSyncCode(c); toast("Appareil relié. Fusion de la progression…"); await syncNow(); toast(SYNC.state === "ok" ? "C'est fait : les deux appareils sont synchronisés." : "Pas de connexion. La fusion se fera dès que possible."); render(); }
   else if (a === "exp") { const c = JSON.parse(JSON.stringify(S)); delete c.grokKey; const code = btoa(unescape(encodeURIComponent(JSON.stringify(c))));
     try { await navigator.clipboard.writeText(code); toast("Code copié. Colle-le dans l'autre version."); } catch (e) { const t = document.getElementById("imp"); if (t) { t.value = code; t.select(); } toast("Copie automatique impossible : le code est dans la case, copie-le à la main."); } }
   else if (a === "imp") { const t = document.getElementById("imp").value.trim(); try { const o = JSON.parse(decodeURIComponent(escape(atob(t)))); if (!o || typeof o.items !== "object") throw 0; const k = S.grokKey; S = Object.assign(freshState(), o); S.grokKey = k; save(); toast("Progression importée."); go("home"); } catch (e) { toast("Code invalide. Recopie-le en entier."); } }
@@ -2110,6 +2169,12 @@ function stopMic() {
   const t = document.getElementById("ans"); if (t) IV.text = t.value;
   IV.rec = false;
 }
+(function initSync() {
+  if (IN_CLAUDE) return;
+  const m = location.hash.match(/sync=([A-Za-z0-9-]{24,})/); if (m) { setSyncCode(cleanCode(m[1])); try { history.replaceState(null, "", location.pathname); } catch (e) {} }
+  if (!syncCode()) setSyncCode(newCode());
+  setTimeout(syncNow, 300); setInterval(() => { if (document.visibilityState === "visible") syncNow(); }, 120000);
+})();
 (function init() {
   const m = location.hash.match(/^#k=((?:gsk_|xai-)[A-Za-z0-9_-]+)/);
   if (m) { S.grokKey = m[1]; S.grokModel = ""; try { localStorage.setItem("mextprep.key", m[1]); } catch (e) {} save(); try { history.replaceState(null, "", location.pathname); } catch (e) { location.hash = ""; } setTimeout(() => toast("Clé " + AI_NAME() + " enregistrée sur ce téléphone."), 400); }
